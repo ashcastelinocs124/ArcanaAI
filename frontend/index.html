@@ -1,0 +1,2740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcana — LLM Observability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#08080c;--sidebar:#0c0c12;--card:#111118;--card-hover:#16161f;
+  --border:#1e1e2c;--border-light:#2a2a3c;
+  --copper:#c8956c;--copper-dim:rgba(200,149,108,.12);--copper-glow:rgba(200,149,108,.06);
+  --green:#4ade80;--green-dim:rgba(74,222,128,.1);
+  --yellow:#fbbf24;--yellow-dim:rgba(251,191,36,.1);
+  --red:#f87171;--red-dim:rgba(248,113,113,.1);
+  --blue:#60a5fa;--blue-dim:rgba(96,165,250,.1);
+  --purple:#a78bfa;--purple-dim:rgba(167,139,250,.1);
+  --text:#e8e4df;--text-secondary:#7b7688;--text-dim:#4a4558;
+  --sidebar-w:250px;--header-h:58px;
+  --surface:#0e0e15;
+  --radius:8px;--radius-sm:5px;--radius-lg:12px;
+  --font-body:'DM Sans',system-ui,sans-serif;
+  --font-display:'Instrument Serif',Georgia,serif;
+  --transition:all .2s cubic-bezier(.4,0,.2,1);
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit;color:inherit;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:.9rem;outline:none}
+input:focus,select:focus{border-color:var(--copper)}
+::selection{background:var(--copper);color:var(--bg)}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border-light)}
+
+/* Layout */
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* Sidebar */
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:10;overflow-y:auto}
+.sidebar-logo{padding:20px 22px 24px;border-bottom:1px solid var(--border)}
+.sidebar-logo h1{font-family:var(--font-display);font-size:1.65rem;font-weight:400;letter-spacing:.02em;color:var(--text);line-height:1}
+.sidebar-logo span{font-size:.75rem;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-top:4px;display:block}
+.sidebar-section{padding:18px 14px 6px}
+.sidebar-section-label{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);padding:0 8px;margin-bottom:6px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius);cursor:pointer;transition:var(--transition);font-size:.9rem;color:var(--text-secondary);font-weight:400;position:relative}
+.sidebar-item:hover{background:var(--copper-glow);color:var(--text)}
+.sidebar-item.active{background:var(--copper-dim);color:var(--copper);font-weight:500}
+.sidebar-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:18px;background:var(--copper);border-radius:0 2px 2px 0}
+.sidebar-item svg{width:18px;height:18px;opacity:.6;flex-shrink:0}
+.sidebar-item.active svg{opacity:1}
+.sidebar-badge{margin-left:auto;background:var(--red);color:#fff;font-size:.65rem;font-weight:600;padding:2px 7px;border-radius:10px}
+.sidebar-footer{margin-top:auto;padding:18px;border-top:1px solid var(--border);font-size:.75rem;color:var(--text-dim)}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.header{height:var(--header-h);min-height:var(--header-h);display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid var(--border);background:var(--sidebar)}
+.breadcrumb{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--text-secondary)}
+.breadcrumb span{color:var(--text-dim)}
+.breadcrumb .current{color:var(--text);font-weight:500}
+.header-actions{display:flex;align-items:center;gap:12px}
+.btn{padding:8px 16px;border-radius:var(--radius-sm);font-size:.85rem;font-weight:500;transition:var(--transition);display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--copper);color:var(--bg)}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-ghost{border:1px solid var(--border);color:var(--text-secondary)}
+.btn-ghost:hover{border-color:var(--border-light);color:var(--text)}
+.btn-back{color:var(--text-secondary);font-size:.8rem;display:flex;align-items:center;gap:4px;cursor:pointer;transition:var(--transition)}
+.btn-back:hover{color:var(--copper)}
+
+.content{flex:1;overflow-y:auto;padding:28px 32px}
+.content::-webkit-scrollbar{width:6px}
+
+/* Page transitions */
+.page{display:none;animation:fadeIn .25s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Stats cards */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:28px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px 24px;transition:var(--transition);position:relative;overflow:hidden}
+.stat-card:hover{border-color:var(--border-light);transform:translateY(-1px)}
+.stat-card::after{content:'';position:absolute;top:0;right:0;width:60px;height:60px;border-radius:50%;filter:blur(30px);opacity:.15}
+.stat-card.copper::after{background:var(--copper)}
+.stat-card.green::after{background:var(--green)}
+.stat-card.blue::after{background:var(--blue)}
+.stat-card.red::after{background:var(--red)}
+.stat-label{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:8px;font-weight:500}
+.stat-value{font-family:var(--font-display);font-size:2.2rem;font-weight:400;line-height:1.1}
+.stat-sub{font-size:.8rem;color:var(--text-secondary);margin-top:6px}
+
+/* Tables */
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+.table-title{font-family:var(--font-display);font-size:1.3rem;font-weight:400}
+.filter-chips{display:flex;gap:8px}
+.chip{padding:5px 14px;border-radius:20px;font-size:.8rem;border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;transition:var(--transition)}
+.chip:hover{border-color:var(--border-light);color:var(--text)}
+.chip.active{background:var(--copper-dim);border-color:var(--copper);color:var(--copper)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:12px 20px;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);font-weight:600;border-bottom:1px solid var(--border)}
+td{padding:14px 20px;font-size:.9rem;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr{transition:var(--transition);cursor:pointer}
+tbody tr:hover{background:var(--copper-glow)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-pass{background:var(--green-dim);color:var(--green)}
+.badge-fail{background:var(--red-dim);color:var(--red)}
+.badge-model{background:var(--blue-dim);color:var(--blue);font-weight:500}
+.badge-plan{background:var(--copper-dim);color:var(--copper);font-weight:500}
+.trace-id{font-family:'DM Sans',monospace;font-size:.75rem;color:var(--text-dim)}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:4px}
+.dot-pass{background:var(--green)}
+.dot-fail{background:var(--red)}
+
+/* Trace detail */
+.trace-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.trace-title{font-family:var(--font-display);font-size:2rem;font-weight:400;line-height:1.2}
+.trace-meta{display:flex;gap:14px;align-items:center;margin-top:8px}
+.trace-meta span{font-size:.85rem;color:var(--text-secondary)}
+
+/* DAG Container */
+.dag-container{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:28px;overflow-x:auto;position:relative}
+.dag-title{font-size:.9rem;font-weight:500;color:var(--text-secondary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.dag-title::before{content:'';width:8px;height:8px;border:2px solid var(--copper);border-radius:50%}
+.dag-svg{width:100%;min-height:200px}
+.dag-node{cursor:pointer;transition:opacity .15s}
+.dag-node:hover{opacity:.85}
+.dag-node rect{rx:8;ry:8;transition:var(--transition)}
+.dag-edge{fill:none;stroke:var(--border-light);stroke-width:1.5}
+
+/* Agent cards */
+.agent-cards{display:grid;grid-template-columns:1fr;gap:14px}
+.agent-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px 24px;transition:var(--transition)}
+.agent-card:hover{border-color:var(--border-light)}
+.agent-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.agent-card-name{font-weight:500;font-size:1rem;display:flex;align-items:center;gap:8px}
+.agent-card-badges{display:flex;gap:8px}
+.agent-card-body{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.agent-field{margin-bottom:0}
+.agent-field-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);font-weight:600;margin-bottom:5px}
+.agent-field-value{font-size:.88rem;color:var(--text-secondary);line-height:1.5;word-break:break-word}
+.agent-field-value.mono{font-family:'DM Sans',monospace;font-size:.82rem}
+.agent-telemetry{display:flex;gap:22px;flex-wrap:wrap}
+.telemetry-item{display:flex;flex-direction:column}
+.telemetry-item .val{font-size:1.2rem;font-weight:500;font-family:var(--font-display)}
+.telemetry-item .lbl{font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-top:2px}
+.eval-bars{display:flex;gap:10px;flex-wrap:wrap}
+.eval-bar{flex:1;min-width:100px}
+.eval-bar-label{font-size:.7rem;color:var(--text-dim);margin-bottom:4px;display:flex;justify-content:space-between}
+.eval-bar-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.eval-bar-fill{height:100%;border-radius:2px;transition:width .6s ease}
+.tool-calls{display:flex;flex-direction:column;gap:4px}
+.tool-call{font-size:.83rem;color:var(--blue);font-family:'DM Sans',monospace;padding:5px 10px;background:var(--blue-dim);border-radius:var(--radius-sm);display:inline-block}
+
+/* Metrics page */
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px}
+.metric-card-title{font-family:var(--font-display);font-size:1.2rem;margin-bottom:16px}
+.bar-chart{display:flex;align-items:flex-end;gap:10px;height:160px;padding-top:12px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.bar{width:100%;border-radius:3px 3px 0 0;transition:height .5s ease;min-height:2px}
+.bar-label{font-size:.65rem;color:var(--text-dim);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bar-value{font-size:.7rem;color:var(--text-secondary);font-weight:500}
+
+/* DAG Viewer page */
+.dag-viewer-controls{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.dag-viewer-controls select{min-width:280px;background:var(--card);padding:10px 14px}
+
+/* Detail panel */
+.detail-panel{position:fixed;top:0;right:-460px;width:460px;height:100vh;background:var(--sidebar);border-left:1px solid var(--border);z-index:100;transition:right .3s ease;overflow-y:auto;padding:28px}
+.detail-panel.open{right:0}
+.detail-panel-close{position:absolute;top:18px;right:18px;width:32px;height:32px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:var(--transition);font-size:.9rem;color:var(--text-secondary)}
+.detail-panel-close:hover{border-color:var(--copper);color:var(--copper)}
+.detail-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99;opacity:0;pointer-events:none;transition:opacity .3s}
+.detail-panel-overlay.open{opacity:1;pointer-events:auto}
+
+/* Section headings */
+.section-heading{font-family:var(--font-display);font-size:1.55rem;font-weight:400;margin-bottom:18px}
+.section-sub{font-size:.85rem;color:var(--text-secondary);margin-bottom:22px}
+
+/* Logs page */
+.log-entry{display:grid;grid-template-columns:130px 1fr 110px 90px 80px;gap:14px;padding:12px 20px;border-bottom:1px solid var(--border);font-size:.88rem;align-items:center;transition:var(--transition)}
+.log-entry:hover{background:var(--copper-glow)}
+.log-time{color:var(--text-dim);font-family:'DM Sans',monospace;font-size:.8rem}
+.log-agent{font-weight:500}
+.log-model{color:var(--blue);font-size:.8rem}
+.log-latency{color:var(--text-secondary);text-align:right}
+
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px;text-align:center}
+.empty-state-icon{width:72px;height:72px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;margin-bottom:18px;font-size:1.7rem}
+.empty-state h3{font-family:var(--font-display);font-size:1.45rem;margin-bottom:10px}
+.empty-state p{color:var(--text-secondary);font-size:.9rem;max-width:340px}
+
+/* Guardrail reason */
+.guardrail-reason{background:var(--red-dim);border:1px solid rgba(248,113,113,.2);border-radius:var(--radius);padding:12px 16px;font-size:.85rem;color:var(--red);margin-top:10px;line-height:1.5}
+
+/* Pipeline edge analysis */
+.edge-table{width:100%;border-collapse:collapse}
+.edge-table th{text-align:left;padding:10px 16px;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);font-weight:600;border-bottom:1px solid var(--border)}
+.edge-table td{padding:12px 16px;font-size:.88rem;border-bottom:1px solid var(--border)}
+.edge-status{display:inline-flex;align-items:center;gap:5px;font-size:.77rem;font-weight:600;padding:3px 10px;border-radius:12px}
+.edge-status.green{background:var(--green-dim);color:var(--green)}
+.edge-status.amber{background:rgba(251,191,36,.1);color:#fbbf24}
+.edge-status.neutral{background:rgba(122,122,140,.1);color:var(--text-secondary)}
+.dag-legend{display:flex;align-items:center;gap:22px;padding:14px 18px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-top:14px;font-size:.8rem;color:var(--text-secondary)}
+.dag-legend-item{display:flex;align-items:center;gap:6px}
+.dag-legend-dot{width:8px;height:8px;border-radius:50%}
+.dag-stats-bar{display:flex;gap:22px;padding:12px 18px;font-size:.8rem;color:var(--text-dim);border-top:1px solid var(--border);margin-top:0}
+.pipeline-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:26px}
+
+/* Prompt Optimizer */
+.optimizer-layout{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.optimizer-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px}
+.optimizer-panel-title{font-family:var(--font-display);font-size:1.15rem;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+textarea{font-family:var(--font-body);color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;font-size:.88rem;resize:vertical;outline:none;width:100%;line-height:1.5}
+textarea:focus{border-color:var(--copper)}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:36px;text-align:center;cursor:pointer;transition:var(--transition)}
+.upload-zone:hover{border-color:var(--copper);background:var(--copper-glow)}
+.upload-zone.active{border-color:var(--copper);background:var(--copper-dim)}
+.opt-result-row{display:grid;grid-template-columns:44px 1fr 1fr .6fr .5fr;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:.88rem;align-items:start}
+.opt-score{font-family:var(--font-display);font-size:1.2rem}
+.opt-iter{color:var(--text-dim);font-size:.8rem}
+.prompt-diff{background:var(--card-hover);border-radius:var(--radius-sm);padding:10px 12px;font-size:.83rem;font-family:'DM Sans',monospace;line-height:1.5;color:var(--text-secondary);margin-top:10px;max-height:140px;overflow-y:auto}
+
+/* Animations */
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.anim-stagger>*{animation:slideUp .35s ease both}
+.anim-stagger>*:nth-child(1){animation-delay:.05s}
+.anim-stagger>*:nth-child(2){animation-delay:.1s}
+.anim-stagger>*:nth-child(3){animation-delay:.15s}
+.anim-stagger>*:nth-child(4){animation-delay:.2s}
+.anim-stagger>*:nth-child(5){animation-delay:.25s}
+.anim-stagger>*:nth-child(6){animation-delay:.3s}
+.anim-stagger>*:nth-child(7){animation-delay:.35s}
+.anim-stagger>*:nth-child(8){animation-delay:.4s}
+.anim-stagger>*:nth-child(9){animation-delay:.45s}
+
+/* Noise overlay */
+body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>Arcana</h1>
+      <span>LLM Observability</span>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Project</div>
+      <div class="sidebar-item active" data-page="overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Overview
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Monitoring</div>
+      <div class="sidebar-item" data-page="traces">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+        Traces
+      </div>
+      <div class="sidebar-item" data-page="metrics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Metrics
+      </div>
+      <div class="sidebar-item" data-page="logs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Logs
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Analysis</div>
+      <div class="sidebar-item" data-page="pipeline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.5 2A2.5 2.5 0 0112 4.5V6h6a2 2 0 012 2v2M14 22a2.5 2.5 0 01-2-4.5V16H6a2 2 0 01-2-2v-2"/><circle cx="9.5" cy="4.5" r="2.5"/><circle cx="14.5" cy="19.5" r="2.5"/><circle cx="22" cy="10" r="2"/><circle cx="2" cy="14" r="2"/></svg>
+        Semantic Pipeline
+      </div>
+      <div class="sidebar-item" data-page="optimizer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Prompt Optimizer
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Workbench</div>
+      <div class="sidebar-item" data-page="dagviewer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="12" r="3"/><circle cx="6" cy="18" r="3"/><line x1="8.6" y1="7.4" x2="15.4" y2="10.6"/><line x1="8.6" y1="16.6" x2="15.4" y2="13.4"/></svg>
+        DAG Viewer
+      </div>
+      <div class="sidebar-item" data-page="evaluations">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+        Evaluations
+      </div>
+      <div class="sidebar-item" data-page="promptlib">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Prompt Library
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Operations</div>
+      <div class="sidebar-item" data-page="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings
+      </div>
+    </div>
+    <div style="padding:0 16px 12px;margin-top:auto">
+      <label for="log-upload-input" class="btn btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;width:100%;padding:10px;font-size:.8rem" id="sidebar-upload-btn">
+        <input type="file" id="log-upload-input" accept=".json,.xlsx,.xls" style="display:none" onchange="handleLogUpload(event)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload Logs
+      </label>
+    </div>
+    <div class="sidebar-footer">
+      Arcana v0.1.0
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="main">
+    <div class="header">
+      <div class="breadcrumb" id="breadcrumb">
+        <span>Arcana</span> <span>/</span> <span class="current" id="breadcrumb-current">Overview</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost" onclick="location.reload()">Refresh</button>
+      </div>
+    </div>
+    <div class="content" id="content">
+      <!-- Overview Page -->
+      <div class="page active" id="page-overview"></div>
+      <!-- Traces Page -->
+      <div class="page" id="page-traces"></div>
+      <!-- Trace Detail Page -->
+      <div class="page" id="page-tracedetail"></div>
+      <!-- Metrics Page -->
+      <div class="page" id="page-metrics"></div>
+      <!-- Logs Page -->
+      <div class="page" id="page-logs"></div>
+      <!-- DAG Viewer Page -->
+      <div class="page" id="page-dagviewer"></div>
+      <!-- Semantic Pipeline Page -->
+      <div class="page" id="page-pipeline"></div>
+      <!-- Prompt Optimizer Page -->
+      <div class="page" id="page-optimizer"></div>
+      <!-- Evaluations Page -->
+      <div class="page" id="page-evaluations"></div>
+      <!-- Prompt Library Page -->
+      <div class="page" id="page-promptlib"></div>
+      <!-- Settings Page -->
+      <div class="page" id="page-settings"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail panel overlay -->
+<div class="detail-panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
+<div class="detail-panel" id="detailPanel">
+  <div class="detail-panel-close" onclick="closePanel()">&times;</div>
+  <div id="panelContent"></div>
+</div>
+
+<script>
+// ===== DATA STATE (loaded via upload) =====
+let DATA = {"description":"","schema_version":"1.0","journeys":[]};
+let dataLoaded = false;
+
+// ===== COMPUTED STATE =====
+let journeys = DATA.journeys;
+let currentPage = 'overview';
+let currentTraceId = null;
+let pipelineState = {
+  loading: false,
+  results: null,
+  error: null,
+  userGoal: null
+};
+
+function loadData(data) {
+  DATA = data;
+  journeys = DATA.journeys || [];
+  dataLoaded = journeys.length > 0;
+  pipelineState.results = null;
+  pipelineState.loading = false;
+  pipelineState.error = null;
+
+  // Auto-navigate to DAG Viewer if there are multi-agent traces
+  const multiAgent = journeys.filter(j => j.samples.length > 1);
+  if (multiAgent.length > 0) {
+    navigateTo('dagviewer');
+  } else {
+    renderCurrentPage();
+  }
+}
+
+function handleLogUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'xlsx' || ext === 'xls') {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = parseXLSXToJourneys(new Uint8Array(e.target.result));
+        if (data) {
+          loadData(data);
+        } else {
+          alert('Could not parse Excel file. Ensure it has columns like trace_id, agent_name, input, output.');
+        }
+      } catch (err) {
+        alert('Error parsing Excel file: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const json = JSON.parse(e.target.result);
+        const data = normalizeUploadedJSON(json);
+        if (data) {
+          loadData(data);
+        } else {
+          alert('Unrecognized JSON format. Expected one of:\n\u2022 { journeys: [...] } (full schema)\n\u2022 Array of journey objects with trace_id + samples\n\u2022 Array of flat agent logs with trace_id + agent_name\n\u2022 Single agent log object');
+        }
+      } catch (err) {
+        alert('Error parsing JSON file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+}
+
+// ===== XLSX PARSING =====
+function parseXLSXToJourneys(arrayBuffer) {
+  var wb = XLSX.read(arrayBuffer, { type: 'array' });
+  var sheet = wb.Sheets[wb.SheetNames[0]];
+  var rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  if (!rows.length) return null;
+
+  // Fuzzy column name resolution: case-insensitive partial match
+  var colMap = {};
+  var wanted = ['trace_id','agent_name','agent_id','parent_id','parent_ids','input','output','model','latency','guardrail_status','journey_name'];
+  var headers = Object.keys(rows[0]);
+  wanted.forEach(function(w) {
+    var wLower = w.toLowerCase().replace(/_/g, '');
+    for (var i = 0; i < headers.length; i++) {
+      var hLower = headers[i].toLowerCase().replace(/[\s_-]/g, '');
+      if (hLower === wLower || hLower.indexOf(wLower) !== -1 || wLower.indexOf(hLower) !== -1) {
+        colMap[w] = headers[i];
+        break;
+      }
+    }
+  });
+
+  // Convert rows to flat log format
+  var logs = rows.map(function(row, idx) {
+    var traceId = colMap.trace_id ? String(row[colMap.trace_id] || '') : '';
+    var parentIdsRaw = colMap.parent_ids ? String(row[colMap.parent_ids] || '') : '';
+    var parentIds = parentIdsRaw ? parentIdsRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+
+    return {
+      trace_id: traceId || 'xlsx-trace-1',
+      journey_name: colMap.journey_name ? String(row[colMap.journey_name] || '') : '',
+      agent_name: colMap.agent_name ? String(row[colMap.agent_name] || 'Agent_' + (idx + 1)) : 'Agent_' + (idx + 1),
+      agent_id: colMap.agent_id ? String(row[colMap.agent_id] || '') : '',
+      parent_id: colMap.parent_id ? String(row[colMap.parent_id] || '') : '',
+      parent_ids: parentIds,
+      input: colMap.input ? String(row[colMap.input] || '') : '',
+      output: colMap.output ? String(row[colMap.output] || '') : '',
+      model: colMap.model ? String(row[colMap.model] || 'unknown') : 'unknown',
+      latency: colMap.latency ? parseFloat(row[colMap.latency]) || 0 : 0,
+      status: colMap.guardrail_status ? String(row[colMap.guardrail_status] || 'pass') : 'pass'
+    };
+  });
+
+  return buildJourneysFromFlatLogs(logs);
+}
+
+// ===== JSON NORMALIZATION =====
+// Mirrors backend's extract_agent_logs() + AgentDAG.from_agent_logs() logic.
+// Accepts multiple formats and normalizes to { journeys: [{ trace_id, journey_name, samples }] }
+function normalizeUploadedJSON(json) {
+  // Format 1: Full schema { journeys: [...] }
+  if (json.journeys && Array.isArray(json.journeys)) {
+    // Ensure each sample has agent_id (backend requires it)
+    json.journeys.forEach(function(j) {
+      ensureAgentIds(j);
+    });
+    return json;
+  }
+  // Format 2: Array of journey objects [{ trace_id, samples }, ...]
+  if (Array.isArray(json) && json.length > 0 && json[0].trace_id && json[0].samples) {
+    json.forEach(function(j) { ensureAgentIds(j); });
+    return { description: 'Uploaded logs', schema_version: '1.0', journeys: json };
+  }
+  // Format 3: Array of flat agent logs [{ trace_id, agent_name, ... }, ...]
+  if (Array.isArray(json) && json.length > 0 && json[0].trace_id) {
+    return buildJourneysFromFlatLogs(json);
+  }
+  // Format 4: Single flat agent log object { trace_id, agent_name, ... }
+  if (json.trace_id) {
+    return buildJourneysFromFlatLogs([json]);
+  }
+  return null;
+}
+
+// Mirrors backend AgentDAG._build_single: ensure every sample has agent_id
+// so buildDAGData can construct proper nodes and edges.
+function ensureAgentIds(journey) {
+  var counter = 0;
+  journey.samples.forEach(function(s) {
+    counter++;
+    if (!s.agent_id) {
+      s.agent_id = journey.trace_id + '-agent-' + counter;
+    }
+  });
+}
+
+// Mirrors backend extract_agent_logs() grouping + AgentDAG.from_agent_logs() trace grouping.
+// Takes flat agent logs and groups them into journeys by trace_id,
+// normalizing each log into the sample schema the rest of the app expects.
+function buildJourneysFromFlatLogs(logs) {
+  // Step 1: Group by trace_id (mirrors AgentDAG.from_agent_logs by_trace grouping)
+  var grouped = {};
+  logs.forEach(function(log, idx) {
+    var tid = log.trace_id || 'unknown';
+    if (!grouped[tid]) {
+      grouped[tid] = { trace_id: tid, journey_name: log.journey_name || tid, samples: [] };
+    }
+    // Step 2: Normalize each log into sample schema
+    // Preserve agent_id if present (backend uses log["agent_id"] directly)
+    var sampleCount = grouped[tid].samples.length + 1;
+    var agentId = log.agent_id || (tid + '-agent-' + sampleCount);
+
+    grouped[tid].samples.push({
+      agent_turn: log.agent_turn || sampleCount,
+      agent_name: log.agent_name || 'Agent_' + sampleCount,
+      agent_id: agentId,
+      // Preserve parent references exactly as-is (backend uses parent_ids then parent_id)
+      parent_id: log.parent_id || null,
+      parent_ids: log.parent_ids || [],
+      input: log.input || '',
+      output: log.output || (log.core_payload ? log.core_payload.completion_message : '') || '',
+      core_payload: log.core_payload || {
+        completion_message: log.output || '',
+        tool_calls: log.tool_calls || [],
+        reasoning_blocks: []
+      },
+      telemetry: log.telemetry || {
+        ttft: 0,
+        latency: (log.metadata && log.metadata.latency_ms) ? log.metadata.latency_ms / 1000 : (log.latency || 0),
+        tokens: (log.telemetry && log.telemetry.tokens) ? log.telemetry.tokens :
+          (log.metadata && typeof log.metadata.tokens === 'number') ?
+            { prompt_tokens: Math.floor(log.metadata.tokens / 2), completion_tokens: Math.ceil(log.metadata.tokens / 2) } :
+            { prompt_tokens: 0, completion_tokens: 0 }
+      },
+      metadata: {
+        customer_plan: (log.metadata && log.metadata.customer_plan) || 'unknown',
+        environment: (log.metadata && log.metadata.environment) || 'unknown',
+        session_id: (log.metadata && log.metadata.session_id) || ''
+      },
+      model_parameters: {
+        model: (log.model_parameters && log.model_parameters.model) || (log.metadata && log.metadata.model) || log.model || 'unknown',
+        temperature: (log.model_parameters && log.model_parameters.temperature) || 0.5,
+        top_p: (log.model_parameters && log.model_parameters.top_p) || 0.9
+      },
+      evaluation_signals: log.evaluation_signals || {
+        eval_scores: log.production_eval_score != null ? [{ name: 'production_eval', score: log.production_eval_score }] : [],
+        guardrail_status: log.status === 'success' ? 'pass' : (log.status === 'fail' ? 'fail' : 'pass')
+      }
+    });
+  });
+
+  return { description: 'Uploaded logs', schema_version: '1.0', journeys: Object.values(grouped) };
+}
+window.handleLogUpload = handleLogUpload;
+
+function renderCurrentPage() {
+  const page = currentPage;
+  if (page === 'overview') renderOverview();
+  else if (page === 'traces') renderTraces();
+  else if (page === 'metrics') renderMetrics();
+  else if (page === 'logs') renderLogs();
+  else if (page === 'dagviewer') renderDAGViewer();
+  else if (page === 'evaluations') renderEvaluations();
+  else if (page === 'settings') renderSettings();
+  else if (page === 'pipeline') renderPipeline();
+  else if (page === 'optimizer') renderOptimizer();
+  else if (page === 'promptlib') renderPromptLibrary();
+}
+
+function renderEmptyState(containerId, title, sub) {
+  document.getElementById(containerId).innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px">' +
+    '<div style="width:80px;height:80px;border-radius:50%;background:var(--copper-dim);display:flex;align-items:center;justify-content:center;margin-bottom:24px">' +
+      '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--copper)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+    '</div>' +
+    '<div style="font-family:var(--font-display);font-size:1.6rem;color:var(--text);margin-bottom:8px">' + title + '</div>' +
+    '<div style="font-size:.9rem;color:var(--text-secondary);margin-bottom:24px;max-width:400px">' + sub + '</div>' +
+    '<label for="empty-state-upload-input" class="btn btn-primary" style="cursor:pointer;padding:12px 28px;font-size:.9rem">' +
+      '<input type="file" id="empty-state-upload-input" accept=".json,.xlsx,.xls" style="display:none" onchange="handleLogUpload(event)">' +
+      'Upload Agent Logs' +
+    '</label>' +
+    '<div style="font-size:.72rem;color:var(--text-dim);margin-top:12px">Accepts JSON or Excel (.xlsx) files with agent execution traces</div>' +
+  '</div>';
+}
+
+function getAllAgents() {
+  const agents = [];
+  journeys.forEach(j => {
+    j.samples.forEach(s => {
+      agents.push({ ...s, trace_id: j.trace_id, journey_name: j.journey_name });
+    });
+  });
+  return agents;
+}
+
+function getJourneyStatus(j) {
+  return j.samples.some(s => s.evaluation_signals.guardrail_status === 'fail') ? 'fail' : 'pass';
+}
+
+function getJourneyLatency(j) {
+  return j.samples.reduce((sum, s) => sum + (s.telemetry?.latency || 0), 0);
+}
+
+function getJourneyTokens(j) {
+  return j.samples.reduce((sum, s) => {
+    const t = s.telemetry?.tokens || {};
+    return sum + (t.prompt_tokens || 0) + (t.completion_tokens || 0);
+  }, 0);
+}
+
+function truncId(id) { return id.substring(0, 18) + '...'; }
+function truncText(t, n) { return t && t.length > n ? t.substring(0, n) + '...' : (t || '(empty)'); }
+
+// ===== NAVIGATION =====
+document.querySelectorAll('.sidebar-item').forEach(item => {
+  item.addEventListener('click', () => { navigateTo(item.dataset.page); });
+});
+
+function navigateTo(page) {
+  currentPage = page;
+  currentTraceId = null;
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  const active = document.querySelector(`.sidebar-item[data-page="${page}"]`);
+  if (active) active.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + page);
+  if (pageEl) { pageEl.classList.add('active'); }
+  const names = { overview:'Overview', traces:'Traces', metrics:'Metrics', logs:'Logs', pipeline:'Semantic Pipeline', optimizer:'Prompt Optimizer', dagviewer:'DAG Viewer', evaluations:'Evaluations', promptlib:'Prompt Library', settings:'Settings', tracedetail:'Trace Detail' };
+  document.getElementById('breadcrumb-current').textContent = names[page] || page;
+  renderPage(page);
+}
+
+function navigateToTrace(traceId) {
+  currentTraceId = traceId;
+  currentPage = 'tracedetail';
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-tracedetail').classList.add('active');
+  document.getElementById('breadcrumb-current').textContent = 'Trace Detail';
+  renderTraceDetail(traceId);
+}
+
+// ===== RENDER PAGES =====
+function renderPage(page) {
+  switch(page) {
+    case 'overview': renderOverview(); break;
+    case 'traces': renderTraces(); break;
+    case 'metrics': renderMetrics(); break;
+    case 'logs': renderLogs(); break;
+    case 'pipeline': renderPipeline(); break;
+    case 'optimizer': renderOptimizer(); break;
+    case 'dagviewer': renderDAGViewer(); break;
+    case 'evaluations': renderEvaluations(); break;
+    case 'promptlib': renderPromptLibrary(); break;
+    case 'settings': renderSettings(); break;
+  }
+}
+
+// ===== OVERVIEW (DASHBOARD) =====
+function renderOverview() {
+  if (!dataLoaded) {
+    return renderEmptyState('page-overview', 'Welcome to Arcana', 'Upload your agent execution logs to start analyzing multi-agent systems. Arcana will reconstruct DAGs, detect communication issues, and monitor task progress.');
+  }
+  const allAgents = getAllAgents();
+  const totalTraces = journeys.length;
+  const totalAgents = allAgents.length;
+  const avgLatency = (allAgents.reduce((s, a) => s + (a.telemetry?.latency || 0), 0) / totalAgents).toFixed(2);
+  const guardrailFails = journeys.filter(j => getJourneyStatus(j) === 'fail').length;
+  const passRate = ((totalTraces - guardrailFails) / totalTraces * 100).toFixed(0);
+  const totalTokens = allAgents.reduce((s,a) => s + (a.telemetry?.tokens?.prompt_tokens||0) + (a.telemetry?.tokens?.completion_tokens||0), 0);
+
+  // Model distribution
+  const modelCounts = {};
+  allAgents.forEach(a => { const m = a.model_parameters?.model||'unknown'; modelCounts[m]=(modelCounts[m]||0)+1; });
+  const modelEntries = Object.entries(modelCounts).sort((a,b) => b[1]-a[1]);
+
+  // Pipeline health
+  const multiAgent = journeys.filter(j => j.samples.length > 1);
+  let totalEdges = 0, totalRed = 0;
+  multiAgent.forEach(j => { const a = analyzeEdges(j); totalEdges += a.results.length; totalRed += a.results.filter(r=>r.status==='red').length; });
+
+  // Latency sparkline data
+  const latencies = allAgents.map(a => a.telemetry?.latency || 0);
+  const maxLat = Math.max(...latencies, 0.1);
+
+  // Guardrail status pie
+  const passCount = totalTraces - guardrailFails;
+
+  document.getElementById('page-overview').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <h2 style="font-family:var(--font-display);font-size:1.8rem;font-weight:400;line-height:1">Dashboard</h2>
+        <div style="font-size:.8rem;color:var(--text-dim);margin-top:4px">${totalTraces} traces &middot; ${totalAgents} agents &middot; ${Object.keys(modelCounts).length} models</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="navigateTo('pipeline')">Pipeline Analysis</button>
+        <button class="btn btn-primary" onclick="navigateTo('traces')">View All Traces</button>
+      </div>
+    </div>
+
+    <div class="stats-row anim-stagger">
+      <div class="stat-card copper"><div class="stat-label">Traces</div><div class="stat-value">${totalTraces}</div><div class="stat-sub">${multiAgent.length} multi-agent</div></div>
+      <div class="stat-card blue"><div class="stat-label">Agents Executed</div><div class="stat-value">${totalAgents}</div><div class="stat-sub">${totalTokens.toLocaleString()} tokens</div></div>
+      <div class="stat-card green"><div class="stat-label">Pass Rate</div><div class="stat-value">${passRate}%</div><div class="stat-sub">${passCount}/${totalTraces} traces</div></div>
+      <div class="stat-card red"><div class="stat-label">Edge Issues</div><div class="stat-value">${totalRed}</div><div class="stat-sub">of ${totalEdges} edges analyzed</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+      <!-- Latency timeline -->
+      <div class="metric-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="metric-card-title" style="margin-bottom:0">Agent Latency</div>
+          <div style="font-size:.75rem;color:var(--text-dim)">avg ${avgLatency}s</div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:80px">
+          ${latencies.map((l,i) => {
+            const h = Math.max(2, (l/maxLat)*72);
+            const color = l > 3 ? 'var(--red)' : l > 1.5 ? 'var(--yellow)' : 'var(--copper)';
+            return `<div style="flex:1;height:${h}px;background:${color};border-radius:2px 2px 0 0;opacity:.7;transition:opacity .15s" title="${allAgents[i]?.agent_name}: ${l}s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7"></div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:.6rem;color:var(--text-dim)"><span>oldest</span><span>newest</span></div>
+      </div>
+
+      <!-- Health ring + model split -->
+      <div class="metric-card">
+        <div class="metric-card-title" style="margin-bottom:12px">Models & Health</div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="position:relative;width:72px;height:72px;flex-shrink:0">
+            <svg viewBox="0 0 36 36" width="72" height="72">
+              <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/>
+              <circle cx="18" cy="18" r="15" fill="none" stroke="var(--green)" stroke-width="3"
+                stroke-dasharray="${passRate * 0.942} ${94.2 - passRate * 0.942}"
+                stroke-dashoffset="23.5" stroke-linecap="round"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:1rem">${passRate}%</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+            ${modelEntries.slice(0,4).map(([m,c]) => {
+              const pct = (c/totalAgents*100).toFixed(0);
+              const short = m.split('-').slice(0,2).join('-');
+              return `<div><div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-secondary);margin-bottom:2px"><span>${short}</span><span>${c}</span></div><div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--copper);border-radius:2px"></div></div></div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <!-- Pipeline health -->
+      <div class="metric-card">
+        <div class="metric-card-title" style="margin-bottom:10px">Pipeline Health</div>
+        ${multiAgent.map(j => {
+          const a = analyzeEdges(j);
+          const redCount = a.results.filter(r=>r.status==='red').length;
+          const edgeCount = a.results.length;
+          const healthPct = edgeCount ? ((edgeCount-redCount)/edgeCount*100).toFixed(0) : 100;
+          const color = redCount ? 'var(--red)' : 'var(--green)';
+          return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="navigateTo('pipeline')">
+            <div style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0"></div>
+            <div style="flex:1;font-size:.8rem;font-weight:500">${j.journey_name}</div>
+            <div style="font-size:.72rem;color:var(--text-dim)">${edgeCount} edges</div>
+            <div style="font-size:.75rem;color:${color};font-weight:500">${healthPct}%</div>
+          </div>`;
+        }).join('')}
+        ${!multiAgent.length ? '<div style="padding:12px;font-size:.8rem;color:var(--text-dim)">No multi-agent traces</div>' : ''}
+      </div>
+
+      <!-- Guardrail events -->
+      <div class="metric-card">
+        <div class="metric-card-title" style="margin-bottom:10px">Guardrail Events</div>
+        ${journeys.filter(j => getJourneyStatus(j) === 'fail').map(j => {
+          const agent = j.samples.find(s => s.evaluation_signals.guardrail_status === 'fail');
+          return `<div style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="navigateToTrace('${j.trace_id}')">
+            <div style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:500"><span class="dot dot-fail"></span>${j.journey_name}</div>
+            <div style="font-size:.72rem;color:var(--red);margin-top:3px;padding-left:10px">${agent?.evaluation_signals?.guardrail_reason ? truncText(agent.evaluation_signals.guardrail_reason, 80) : 'Blocked'}</div>
+          </div>`;
+        }).join('')}
+        ${!guardrailFails ? '<div style="padding:12px;font-size:.82rem;color:var(--green);display:flex;align-items:center;gap:6px"><span class="dot dot-pass"></span>No guardrail violations</div>' : ''}
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <div class="table-title">Recent Traces</div>
+        <div style="font-size:.75rem;color:var(--text-dim);cursor:pointer" onclick="navigateTo('traces')">View all &rarr;</div>
+      </div>
+      <table>
+        <thead><tr><th>Journey</th><th>Trace ID</th><th>Agents</th><th>Status</th><th>Latency</th><th>Tokens</th></tr></thead>
+        <tbody>${journeys.slice(0,6).map(j => {
+          const st = getJourneyStatus(j);
+          return `<tr onclick="navigateToTrace('${j.trace_id}')">
+            <td style="font-weight:500">${j.journey_name}</td>
+            <td><span class="trace-id">${truncId(j.trace_id)}</span></td>
+            <td>${j.samples.length}</td>
+            <td><span class="badge badge-${st}"><span class="dot dot-${st}"></span>${st}</span></td>
+            <td>${getJourneyLatency(j).toFixed(2)}s</td>
+            <td>${getJourneyTokens(j).toLocaleString()}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ===== TRACES =====
+function renderTraces(filter = 'all') {
+  if (!dataLoaded) return renderEmptyState('page-traces', 'No Traces Loaded', 'Upload your agent logs to view execution traces across all journeys.');
+  const filtered = filter === 'all' ? journeys : journeys.filter(j => getJourneyStatus(j) === filter);
+  document.getElementById('page-traces').innerHTML = `
+    <div class="section-heading">All Traces</div>
+    <div class="table-wrap">
+      <div class="table-header">
+        <div class="filter-chips">
+          ${['all','pass','fail'].map(f => `<div class="chip ${filter===f?'active':''}" onclick="renderTraces('${f}')">${f === 'all' ? 'All' : f.charAt(0).toUpperCase()+f.slice(1)}</div>`).join('')}
+        </div>
+        <div style="font-size:.8rem;color:var(--text-secondary)">${filtered.length} traces</div>
+      </div>
+      <table>
+        <thead><tr><th>Journey</th><th>Trace ID</th><th>Agents</th><th>Status</th><th>Latency</th><th>Models</th><th>Plan</th></tr></thead>
+        <tbody>${filtered.map(j => {
+          const st = getJourneyStatus(j);
+          const models = [...new Set(j.samples.map(s => s.model_parameters?.model))].join(', ');
+          const plan = j.samples[0]?.metadata?.customer_plan || '—';
+          return `<tr onclick="navigateToTrace('${j.trace_id}')">
+            <td style="font-weight:500">${j.journey_name}</td>
+            <td><span class="trace-id">${truncId(j.trace_id)}</span></td>
+            <td>${j.samples.length}</td>
+            <td><span class="badge badge-${st}"><span class="dot dot-${st}"></span>${st}</span></td>
+            <td>${getJourneyLatency(j).toFixed(2)}s</td>
+            <td style="font-size:.75rem;color:var(--text-secondary)">${models}</td>
+            <td><span class="badge badge-plan">${plan}</span></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+  `;
+}
+window.renderTraces = renderTraces;
+
+// ===== TRACE DETAIL =====
+function renderTraceDetail(traceId) {
+  const journey = journeys.find(j => j.trace_id === traceId);
+  if (!journey) return;
+  const st = getJourneyStatus(journey);
+  const el = document.getElementById('page-tracedetail');
+
+  el.innerHTML = `
+    <div class="btn-back" onclick="navigateTo('traces')">&larr; Back to Traces</div>
+    <div class="trace-header" style="margin-top:12px">
+      <div>
+        <div class="trace-title">${journey.journey_name}</div>
+        <div class="trace-meta">
+          <span class="trace-id">${journey.trace_id}</span>
+          <span class="badge badge-${st}"><span class="dot dot-${st}"></span>${st}</span>
+          <span>${journey.samples.length} agents</span>
+          <span>${getJourneyLatency(journey).toFixed(2)}s total</span>
+        </div>
+      </div>
+    </div>
+    ${journey.initial_user_request ? `<div style="background:var(--copper-dim);border:1px solid rgba(200,149,108,.2);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:.85rem"><strong style="color:var(--copper)">User Request:</strong> ${journey.initial_user_request}</div>` : ''}
+    <div class="dag-container">
+      <div class="dag-title">Execution DAG &mdash; Edge Similarity Analysis</div>
+      <div id="dag-detail-svg"></div>
+    </div>
+    ${(() => {
+      const analysis = analyzeEdges(journey);
+      const reds = analysis.results.filter(r => r.status === 'red');
+      if (!analysis.results.length) return '';
+      return `<div class="table-wrap" style="margin-bottom:20px">
+        <div class="table-header">
+          <div class="table-title">Edge Analysis</div>
+          <div style="font-size:.8rem;color:var(--text-secondary)">avg drift: ${analysis.avg.toFixed(3)} &middot; stdev: ${analysis.stdev.toFixed(3)}</div>
+        </div>
+        <table class="edge-table">
+          <thead><tr><th>Edge</th><th>Similarity</th><th>Status</th></tr></thead>
+          <tbody>${analysis.results.map(r => {
+            const pct = (r.similarity * 100).toFixed(0);
+            const color = r.status === 'green' ? 'var(--green)' : 'var(--red)';
+            return `<tr><td>${r.parent_name} &rarr; ${r.child_name}</td><td><span class="sim-bar"><span class="sim-bar-fill" style="width:${pct}%;background:${color}"></span></span>${pct}%</td><td><span class="edge-status ${r.status}">${r.status==='green'?'Pass':'Issue'}</span></td></tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>`;
+    })()}
+    <div class="section-heading" style="margin-top:24px">Agent Steps</div>
+    <div class="agent-cards anim-stagger">
+      ${journey.samples.map(s => renderAgentCard(s)).join('')}
+    </div>
+  `;
+
+  // Render DAG with colored edges from analysis
+  const edgeAnalysis = analyzeEdges(journey);
+  if (edgeAnalysis.results.length) {
+    renderDAGWithEdgeColors('dag-detail-svg', journey, edgeAnalysis.results);
+  } else {
+    renderDAG('dag-detail-svg', journey);
+  }
+}
+
+function renderAgentCard(s) {
+  const gs = s.evaluation_signals?.guardrail_status || 'pass';
+  const evals = s.evaluation_signals?.eval_scores || [];
+  const tools = s.core_payload?.tool_calls || [];
+  const reasoning = s.core_payload?.reasoning_blocks || [];
+  const model = s.model_parameters?.model || '—';
+
+  return `<div class="agent-card">
+    <div class="agent-card-header">
+      <div class="agent-card-name">
+        <span class="dot dot-${gs === 'pass' ? 'pass' : 'fail'}"></span>
+        ${s.agent_name}
+        <span style="color:var(--text-dim);font-weight:400;font-size:.75rem">Turn ${s.agent_turn}</span>
+      </div>
+      <div class="agent-card-badges">
+        <span class="badge badge-model">${model}</span>
+        ${s.metadata?.customer_plan ? `<span class="badge badge-plan">${s.metadata.customer_plan}</span>` : ''}
+      </div>
+    </div>
+    <div class="agent-card-body">
+      <div class="agent-field"><div class="agent-field-label">Input</div><div class="agent-field-value">${truncText(s.input, 200)}</div></div>
+      <div class="agent-field"><div class="agent-field-label">Output</div><div class="agent-field-value">${truncText(s.output, 200)}</div></div>
+    </div>
+    <div style="display:flex;gap:24px;margin-top:14px;flex-wrap:wrap;align-items:flex-start">
+      <div>
+        <div class="agent-field-label" style="margin-bottom:6px">Telemetry</div>
+        <div class="agent-telemetry">
+          <div class="telemetry-item"><span class="val">${s.telemetry?.latency || 0}s</span><span class="lbl">Latency</span></div>
+          <div class="telemetry-item"><span class="val">${s.telemetry?.ttft || 0}s</span><span class="lbl">TTFT</span></div>
+          <div class="telemetry-item"><span class="val">${(s.telemetry?.tokens?.prompt_tokens||0)+(s.telemetry?.tokens?.completion_tokens||0)}</span><span class="lbl">Tokens</span></div>
+        </div>
+      </div>
+      ${evals.length ? `<div style="flex:1;min-width:200px">
+        <div class="agent-field-label" style="margin-bottom:6px">Eval Scores</div>
+        <div class="eval-bars">${evals.map(e => {
+          const pct = (e.score * 100).toFixed(0);
+          const color = e.score >= 0.9 ? 'var(--green)' : e.score >= 0.7 ? 'var(--yellow)' : 'var(--red)';
+          return `<div class="eval-bar"><div class="eval-bar-label"><span>${e.name.replace(/_/g,' ')}</span><span>${pct}%</span></div><div class="eval-bar-track"><div class="eval-bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+        }).join('')}</div>
+      </div>` : ''}
+      ${tools.length ? `<div>
+        <div class="agent-field-label" style="margin-bottom:6px">Tool Calls</div>
+        <div class="tool-calls">${tools.map(t => `<span class="tool-call">${t.function_name}(${JSON.stringify(t.arguments).substring(0,50)}...)</span>`).join('')}</div>
+      </div>` : ''}
+    </div>
+    ${reasoning.length ? `<div style="margin-top:12px"><div class="agent-field-label" style="margin-bottom:6px">Reasoning</div><div style="font-size:.78rem;color:var(--text-secondary);line-height:1.6">${reasoning.map((r,i) => `<div style="padding:3px 0;border-left:2px solid var(--border-light);padding-left:10px;margin-bottom:4px">${r}</div>`).join('')}</div></div>` : ''}
+    ${gs === 'fail' ? `<div class="guardrail-reason">${s.evaluation_signals?.guardrail_reason || 'Guardrail check failed'}</div>` : ''}
+  </div>`;
+}
+
+// ===== DAG RENDERING =====
+// Mirrors backend AgentDAG._build_single():
+//   nodes[agent_id] = log
+//   parent_ids checked first, then parent_id (same priority as backend)
+//   children_of[parent_id].push(agent_id) for adjacency
+function buildDAGData(journey) {
+  const nodes = {};
+  const edges = [];
+  const parentsOf = {};
+  const childrenOf = {};
+
+  journey.samples.forEach(function(s) {
+    var agentId = s.agent_id;
+    if (!agentId) return; // skip samples without agent_id
+    nodes[agentId] = s;
+    parentsOf[agentId] = [];
+
+    // Backend: checks parent_ids first, then parent_id
+    var parents = [];
+    if (s.parent_ids && s.parent_ids.length > 0) {
+      parents = s.parent_ids.slice();
+    } else if (s.parent_id) {
+      parents = [s.parent_id];
+    }
+
+    parentsOf[agentId] = parents;
+
+    parents.forEach(function(pid) {
+      edges.push([pid, agentId]);
+      if (!childrenOf[pid]) childrenOf[pid] = [];
+      childrenOf[pid].push(agentId);
+    });
+  });
+
+  return { nodes, edges, parentsOf, childrenOf };
+}
+
+function layoutDAG(journey) {
+  const dagData = buildDAGData(journey);
+  const nodes = dagData.nodes;
+  const edges = dagData.edges;
+  const ids = Object.keys(nodes);
+  if (!ids.length) return { positioned: [], edges: [], width: 0, height: 0 };
+
+  // Build adjacency using only nodes that exist (mirrors backend get_children/get_parents)
+  const children = {};
+  const parents = {};
+  ids.forEach(id => { children[id] = []; parents[id] = []; });
+  edges.forEach(([p, c]) => {
+    // Only include edges where both parent and child are known nodes
+    if (children[p] && parents[c]) {
+      children[p].push(c);
+      parents[c].push(p);
+    }
+  });
+
+  const roots = ids.filter(id => parents[id].length === 0);
+  const layers = {};
+  const visited = new Set();
+  const queue = roots.map(r => [r, 0]);
+  roots.forEach(r => visited.add(r));
+
+  while (queue.length) {
+    const [id, layer] = queue.shift();
+    layers[id] = Math.max(layers[id] || 0, layer);
+    (children[id] || []).forEach(cid => {
+      if (!visited.has(cid)) { visited.add(cid); }
+      layers[cid] = Math.max(layers[cid] || 0, layer + 1);
+      queue.push([cid, layer + 1]);
+    });
+  }
+
+  // Handle unvisited nodes
+  ids.forEach(id => { if (layers[id] === undefined) layers[id] = 0; });
+
+  const layerGroups = {};
+  ids.forEach(id => {
+    const l = layers[id];
+    if (!layerGroups[l]) layerGroups[l] = [];
+    layerGroups[l].push(id);
+  });
+
+  const nodeW = 200, nodeH = 80, hGap = 80, vGap = 44;
+  const maxLayer = Math.max(...Object.values(layers));
+  const maxInLayer = Math.max(...Object.values(layerGroups).map(g => g.length));
+
+  const positioned = [];
+  Object.entries(layerGroups).forEach(([layer, group]) => {
+    const l = parseInt(layer);
+    const totalH = group.length * nodeH + (group.length - 1) * vGap;
+    const startY = (maxInLayer * (nodeH + vGap) - totalH) / 2;
+    group.forEach((id, idx) => {
+      positioned.push({
+        id,
+        node: nodes[id],
+        x: l * (nodeW + hGap) + 20,
+        y: startY + idx * (nodeH + vGap) + 20,
+        w: nodeW,
+        h: nodeH
+      });
+    });
+  });
+
+  const width = (maxLayer + 1) * (nodeW + hGap) + 40;
+  const height = maxInLayer * (nodeH + vGap) + 40;
+
+  return { positioned, edges, width: Math.max(width, 400), height: Math.max(height, 150) };
+}
+
+function renderDAG(containerId, journey) {
+  // Delegate to renderDAGWithCheckpoints with no checkpoints (renders neutral nodes)
+  renderDAGWithCheckpoints(containerId, journey, null);
+}
+
+// ===== AGENT PANEL =====
+function showAgentPanel(agentId, traceId) {
+  const journey = journeys.find(j => j.trace_id === traceId);
+  if (!journey) return;
+  const agent = journey.samples.find(s => s.agent_id === agentId);
+  if (!agent) return;
+
+  // Check if this agent was flagged in a goal deviation
+  var deviationHTML = '';
+  var traceResult = getTraceCheckpoints(traceId);
+  if (traceResult) {
+    var deviations = (traceResult.deviations || []).filter(function(d) {
+      return d.agent_ids && d.agent_ids.indexOf(agentId) !== -1;
+    });
+    if (deviations.length) {
+      deviationHTML = '<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px">' +
+        '<div style="font-size:.78rem;font-weight:600;color:#fbbf24;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Goal Deviation Detected</div>' +
+        '<div style="font-size:.82rem;color:var(--text-secondary);line-height:1.6">' + deviations[0].verdict + '</div>' +
+      '</div>';
+    }
+  }
+
+  document.getElementById('panelContent').innerHTML = `
+    <h3 style="font-family:var(--font-display);font-size:1.3rem;margin-bottom:16px">${agent.agent_name}</h3>
+    ${deviationHTML}
+    ${renderAgentCard(agent)}
+  `;
+  document.getElementById('detailPanel').classList.add('open');
+  document.getElementById('panelOverlay').classList.add('open');
+}
+window.showAgentPanel = showAgentPanel;
+
+function closePanel() {
+  document.getElementById('detailPanel').classList.remove('open');
+  document.getElementById('panelOverlay').classList.remove('open');
+}
+window.closePanel = closePanel;
+
+// ===== METRICS =====
+function renderMetrics() {
+  if (!dataLoaded) return renderEmptyState('page-metrics', 'No Metrics Available', 'Upload agent logs to view latency distributions, token usage, and evaluation scores.');
+  const allAgents = getAllAgents();
+  const modelCounts = {};
+  const modelTokens = {};
+  const latencies = [];
+  allAgents.forEach(a => {
+    const m = a.model_parameters?.model || 'unknown';
+    modelCounts[m] = (modelCounts[m] || 0) + 1;
+    const t = (a.telemetry?.tokens?.prompt_tokens || 0) + (a.telemetry?.tokens?.completion_tokens || 0);
+    modelTokens[m] = (modelTokens[m] || 0) + t;
+    latencies.push(a.telemetry?.latency || 0);
+  });
+
+  const maxTokens = Math.max(...Object.values(modelTokens));
+  const maxCount = Math.max(...Object.values(modelCounts));
+  const colors = ['var(--copper)', 'var(--blue)', 'var(--green)', 'var(--yellow)', 'var(--red)'];
+
+  // Latency buckets
+  const buckets = {'<0.5s':0,'0.5-1s':0,'1-2s':0,'2-3s':0,'>3s':0};
+  latencies.forEach(l => {
+    if (l < 0.5) buckets['<0.5s']++;
+    else if (l < 1) buckets['0.5-1s']++;
+    else if (l < 2) buckets['1-2s']++;
+    else if (l < 3) buckets['2-3s']++;
+    else buckets['>3s']++;
+  });
+  const maxBucket = Math.max(...Object.values(buckets));
+
+  // Eval averages
+  const evalSums = {};
+  const evalCounts = {};
+  allAgents.forEach(a => {
+    (a.evaluation_signals?.eval_scores || []).forEach(e => {
+      evalSums[e.name] = (evalSums[e.name] || 0) + e.score;
+      evalCounts[e.name] = (evalCounts[e.name] || 0) + 1;
+    });
+  });
+
+  document.getElementById('page-metrics').innerHTML = `
+    <div class="section-heading">Metrics</div>
+    <div class="section-sub">Aggregated performance data across ${journeys.length} traces and ${allAgents.length} agent executions.</div>
+    <div class="metrics-grid anim-stagger">
+      <div class="metric-card">
+        <div class="metric-card-title">Latency Distribution</div>
+        <div class="bar-chart">${Object.entries(buckets).map(([k,v],i) =>
+          `<div class="bar-col"><div class="bar-value">${v}</div><div class="bar" style="height:${maxBucket?v/maxBucket*120:0}px;background:${colors[i%colors.length]}"></div><div class="bar-label">${k}</div></div>`
+        ).join('')}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-title">Tokens by Model</div>
+        <div class="bar-chart">${Object.entries(modelTokens).map(([m,t],i) =>
+          `<div class="bar-col"><div class="bar-value">${t.toLocaleString()}</div><div class="bar" style="height:${maxTokens?t/maxTokens*120:0}px;background:${colors[i%colors.length]}"></div><div class="bar-label">${m.split('-').slice(0,2).join('-')}</div></div>`
+        ).join('')}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-title">Agent Count by Model</div>
+        <div class="bar-chart">${Object.entries(modelCounts).map(([m,c],i) =>
+          `<div class="bar-col"><div class="bar-value">${c}</div><div class="bar" style="height:${maxCount?c/maxCount*120:0}px;background:${colors[i%colors.length]}"></div><div class="bar-label">${m.split('-').slice(0,2).join('-')}</div></div>`
+        ).join('')}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-title">Avg Eval Scores</div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+          ${Object.entries(evalSums).map(([name, sum]) => {
+            const avg = sum / evalCounts[name];
+            const pct = (avg * 100).toFixed(0);
+            const color = avg >= 0.9 ? 'var(--green)' : avg >= 0.7 ? 'var(--yellow)' : 'var(--red)';
+            return `<div><div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--text-secondary);margin-bottom:3px"><span>${name.replace(/_/g,' ')}</span><span style="color:${color}">${pct}%</span></div><div class="eval-bar-track"><div class="eval-bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ===== LOGS =====
+function renderLogs() {
+  if (!dataLoaded) return renderEmptyState('page-logs', 'No Logs Available', 'Upload agent logs to view a timeline of all agent executions.');
+  const allAgents = getAllAgents().sort((a, b) => a.agent_turn - b.agent_turn);
+  const times = ['09:14:02', '09:14:03', '09:14:04', '09:14:05', '09:14:06', '09:14:07', '09:14:08', '09:14:09', '09:14:10', '09:14:11', '09:14:12', '09:14:13', '09:14:14', '09:14:15', '09:14:16', '09:14:17', '09:14:18', '09:14:19', '09:14:20'];
+
+  document.getElementById('page-logs').innerHTML = `
+    <div class="section-heading">Agent Logs</div>
+    <div class="section-sub">${allAgents.length} agent executions across all traces.</div>
+    <div class="table-wrap">
+      <div class="table-header"><div class="table-title">Execution Log</div></div>
+      <div>
+        <div class="log-entry" style="border-bottom:1px solid var(--border);font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim)">
+          <div>Time</div><div>Agent</div><div>Model</div><div>Status</div><div>Latency</div>
+        </div>
+        ${allAgents.map((a, i) => {
+          const gs = a.evaluation_signals?.guardrail_status;
+          return `<div class="log-entry" onclick="navigateToTrace('${a.trace_id}')">
+            <div class="log-time">${times[i % times.length]}</div>
+            <div class="log-agent"><span class="dot dot-${gs === 'pass' ? 'pass' : 'fail'}"></span>${a.agent_name}<span style="color:var(--text-dim);font-weight:400;margin-left:8px;font-size:.75rem">${a.journey_name}</span></div>
+            <div class="log-model">${(a.model_parameters?.model || '—').split('-').slice(0,2).join('-')}</div>
+            <div><span class="badge badge-${gs === 'pass' ? 'pass' : 'fail'}">${gs}</span></div>
+            <div class="log-latency">${a.telemetry?.latency || 0}s</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ===== DAG VIEWER =====
+function renderDAGViewer(selectedTrace) {
+  if (!dataLoaded) return renderEmptyState('page-dagviewer', 'No DAGs to Display', 'Upload agent logs to visualize execution DAGs and run workflows.');
+  const sel = selectedTrace || journeys[0].trace_id;
+  const journey = journeys.find(j => j.trace_id === sel);
+  const traceResult = getTraceCheckpoints(sel);
+  const checkpoints = traceResult ? traceResult.checkpoints || [] : [];
+  const deviations = traceResult ? traceResult.deviations || [] : [];
+  const totalSteps = traceResult ? traceResult.total_steps || 0 : 0;
+
+  document.getElementById('page-dagviewer').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div class="section-heading" style="margin-bottom:4px">DAG Viewer</div>
+        <div class="section-sub" style="margin-bottom:0">Interactive execution graph with LLM goal verification.</div>
+      </div>
+      <button class="btn btn-primary" onclick="showWorkflowDialog()" style="padding:10px 20px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:1.1rem">▶</span> Run Workflow
+      </button>
+    </div>
+
+    <div class="dag-viewer-controls" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <select id="dagSelect" onchange="renderDAGViewer(this.value)">
+        ${journeys.map(j => `<option value="${j.trace_id}" ${j.trace_id === sel ? 'selected' : ''}>${j.journey_name} (${j.trace_id.substring(0,12)}...)</option>`).join('')}
+      </select>
+      <input id="dagUserGoal" type="text" placeholder="Enter user goal to verify agent alignment..."
+        value="${pipelineState.userGoal || ''}"
+        style="background:var(--card);padding:10px 14px;min-width:300px;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem;flex:1"
+      />
+      <button class="btn btn-primary" style="padding:10px 20px;font-size:.85rem" onclick="pipelineState.userGoal = document.getElementById('dagUserGoal').value; pipelineState.results = null; loadPipelineFromBackend().then(function() { renderDAGViewer(document.getElementById('dagSelect')?.value); })">Verify Goal</button>
+    </div>
+
+    <div class="dag-container">
+      <div class="dag-title">${journey?.journey_name || ''}</div>
+      <div id="dag-viewer-svg"></div>
+      <div class="dag-legend">
+        <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#4ade80"></div> On Track (LLM verified)</div>
+        <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#fbbf24"></div> Goal Deviation</div>
+        <div class="dag-legend-item"><div class="dag-legend-dot" style="background:transparent;border:1.5px solid #c8956c"></div> Root node</div>
+        <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#4a4558"></div> Not yet checked</div>
+        <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#60a5fa"></div> Latency</div>
+        ${checkpoints.length ? `<div style="margin-left:auto;display:flex;gap:16px;color:var(--text-dim);font-size:.72rem">
+          <span>${checkpoints.length} checkpoint${checkpoints.length !== 1 ? 's' : ''}</span>
+          <span style="color:${deviations.length ? '#fbbf24' : 'var(--text-dim)'}">${deviations.length} deviation${deviations.length !== 1 ? 's' : ''}</span>
+          <span>${totalSteps} steps</span>
+        </div>` : ''}
+      </div>
+    </div>
+
+    ${checkpoints.length ? `
+    <div class="section-heading" style="margin-top:24px;display:flex;align-items:center;gap:8px">
+      Goal Verification Results
+    </div>
+    <div class="section-sub" style="margin-bottom:16px">LLM checkpoints every 2 nodes verifying agents are aligned with your goal.</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+      ${checkpoints.map(function(cp) {
+        var isDeviation = cp.is_deviation;
+        var bgColor = isDeviation ? 'rgba(251,191,36,.06)' : 'rgba(74,222,128,.04)';
+        var borderColor = isDeviation ? 'rgba(251,191,36,.2)' : 'rgba(74,222,128,.15)';
+        var iconColor = isDeviation ? '#fbbf24' : '#4ade80';
+        var icon = isDeviation ? '✗' : '✓';
+        var agentNames = (cp.agent_names || []).join(', ');
+        return '<div style="background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:var(--radius-lg);padding:14px 18px">' +
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
+            '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:' + (isDeviation ? 'rgba(251,191,36,.15)' : 'rgba(74,222,128,.12)') + ';color:' + iconColor + ';font-size:.8rem;font-weight:700">' + icon + '</span>' +
+            '<span style="font-weight:600;font-size:.88rem;color:' + iconColor + '">Checkpoint at Step ' + cp.step_count + '</span>' +
+            '<span class="edge-status ' + (isDeviation ? 'amber' : 'green') + '">' + (isDeviation ? 'Off Track' : 'On Track') + '</span>' +
+          '</div>' +
+          '<div style="font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding-left:32px">' + cp.verdict + '</div>' +
+          (agentNames ? '<div style="font-size:.72rem;color:var(--text-dim);margin-top:6px;padding-left:32px">Agents: ' + agentNames + '</div>' : '') +
+        '</div>';
+      }).join('')}
+    </div>
+    ` : (pipelineState.userGoal ? `
+    <div style="margin-top:20px;padding:16px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);font-size:.85rem;color:var(--text-secondary);display:flex;align-items:center;gap:8px">
+      ${pipelineState.loading ? '<div style="width:14px;height:14px;border:2px solid var(--copper);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></div> Verifying goal alignment...' : (pipelineState.error ? '<span style="color:var(--yellow)">Backend unavailable: ' + pipelineState.error + '</span>' : 'Click "Verify Goal" to run LLM checkpoints.')}
+    </div>
+    ` : `
+    <div style="margin-top:20px;padding:16px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);font-size:.85rem;color:var(--text-secondary);display:flex;align-items:center;gap:8px">
+      Enter a user goal above and click "Verify Goal" to check agent alignment with LLM checkpoints every 2 nodes.
+    </div>
+    `)}
+
+    <div class="section-heading" style="margin-top:20px">Agents in Trace</div>
+    <div class="agent-cards anim-stagger">
+      ${(journey?.samples || []).map(s => renderAgentCard(s)).join('')}
+    </div>
+  `;
+
+  if (journey) renderDAGWithCheckpoints('dag-viewer-svg', journey, traceResult);
+}
+window.renderDAGViewer = renderDAGViewer;
+
+// ===== EVALUATIONS =====
+function renderEvaluations() {
+  if (!dataLoaded) return renderEmptyState('page-evaluations', 'No Evaluations Yet', 'Upload agent logs to view evaluation scores or run custom evaluations via the backend API.');
+  const allAgents = getAllAgents();
+  const evalData = {};
+  allAgents.forEach(a => {
+    (a.evaluation_signals?.eval_scores || []).forEach(e => {
+      if (!evalData[e.name]) evalData[e.name] = [];
+      evalData[e.name].push({ score: e.score, agent: a.agent_name, journey: a.journey_name });
+    });
+  });
+
+  document.getElementById('page-evaluations').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div class="section-heading" style="margin-bottom:4px">Evaluations</div>
+        <div class="section-sub" style="margin-bottom:0">Evaluation scores across all agent executions.</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:.7rem;color:var(--text-dim);margin-bottom:4px">Custom evaluations available via backend</div>
+        <div style="font-size:.65rem;color:var(--text-dim)">POST /api/evaluations/run</div>
+      </div>
+    </div>
+    <div class="metrics-grid anim-stagger">
+      ${Object.entries(evalData).map(([name, entries]) => {
+        const avg = entries.reduce((s, e) => s + e.score, 0) / entries.length;
+        const min = Math.min(...entries.map(e => e.score));
+        const max = Math.max(...entries.map(e => e.score));
+        const pct = (avg * 100).toFixed(0);
+        const color = avg >= 0.9 ? 'var(--green)' : avg >= 0.7 ? 'var(--yellow)' : 'var(--red)';
+        return `<div class="metric-card">
+          <div class="metric-card-title" style="display:flex;justify-content:space-between;align-items:center">${name.replace(/_/g, ' ')}<span style="font-family:var(--font-display);font-size:1.5rem;color:${color}">${pct}%</span></div>
+          <div style="margin:12px 0 8px"><div class="eval-bar-track" style="height:6px"><div class="eval-bar-fill" style="width:${pct}%;background:${color};height:100%"></div></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-dim)"><span>Min: ${(min*100).toFixed(0)}%</span><span>${entries.length} samples</span><span>Max: ${(max*100).toFixed(0)}%</span></div>
+          <div style="margin-top:10px;font-size:.75rem;color:var(--text-secondary)">
+            ${entries.map(e => `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)"><span>${e.agent}</span><span style="color:${e.score >= 0.9 ? 'var(--green)' : e.score >= 0.7 ? 'var(--yellow)' : 'var(--red)'}">${(e.score*100).toFixed(0)}%</span></div>`).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ===== SETTINGS =====
+function renderSettings() {
+  document.getElementById('page-settings').innerHTML = `
+    <div class="section-heading">Settings</div>
+    <div class="section-sub">Platform configuration and preferences.</div>
+    <div class="metric-card" style="max-width:500px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px">
+      <div style="font-weight:500;margin-bottom:16px">General</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div><label style="font-size:.75rem;color:var(--text-dim);display:block;margin-bottom:4px">Platform Name</label><input value="Arcana" style="width:100%"></div>
+        <div><label style="font-size:.75rem;color:var(--text-dim);display:block;margin-bottom:4px">Data Source</label><input value="keywords_ai_agent_output_samples.json" style="width:100%" readonly></div>
+        <div><label style="font-size:.75rem;color:var(--text-dim);display:block;margin-bottom:4px">Schema Version</label><input value="${DATA.schema_version}" style="width:100%" readonly></div>
+      </div>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:.75rem;color:var(--text-dim)">
+        Arcana v0.1.0 &mdash; LLM Observability Platform<br>
+        ${journeys.length} traces &middot; ${getAllAgents().length} agents &middot; ${Object.keys(getAllAgents().reduce((m,a)=>{m[a.model_parameters?.model||'']=1;return m},{})).length} models
+      </div>
+    </div>
+  `;
+}
+
+// ===== PROMPT LIBRARY =====
+function renderPromptLibrary() {
+  var lib = loadPromptLibrary();
+  var allAgents = dataLoaded ? getAllAgents() : [];
+  var agentNames = [];
+  var seen = {};
+  allAgents.forEach(function(a) { if (!seen[a.agent_name]) { seen[a.agent_name] = true; agentNames.push(a.agent_name); } });
+
+  // Group prompts by agent
+  var grouped = {};
+  lib.forEach(function(p) {
+    var key = p.agentName || 'Unassigned';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(p);
+  });
+
+  var leftPrompt = promptLibraryCompare.left ? lib.find(function(p) { return p.id === promptLibraryCompare.left; }) : null;
+  var rightPrompt = promptLibraryCompare.right ? lib.find(function(p) { return p.id === promptLibraryCompare.right; }) : null;
+
+  document.getElementById('page-promptlib').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div class="section-heading" style="margin-bottom:4px">Prompt Library</div>
+        <div class="section-sub" style="margin-bottom:0">Save, organize, and compare prompt templates tied to specific agents.</div>
+      </div>
+      <div style="font-size:.75rem;color:var(--text-dim)">${lib.length} prompt${lib.length !== 1 ? 's' : ''} saved</div>
+    </div>
+
+    <!-- Save New Prompt Form -->
+    <div class="metric-card" style="margin-bottom:20px;padding:16px 20px">
+      <div style="font-weight:500;font-size:.85rem;margin-bottom:12px;color:var(--copper)">Save New Prompt</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label class="agent-field-label" style="display:block;margin-bottom:4px">Name</label>
+          <input type="text" id="pl-name" placeholder="e.g. v2 concise summarizer" style="width:100%">
+        </div>
+        <div>
+          <label class="agent-field-label" style="display:block;margin-bottom:4px">Agent</label>
+          <input type="text" id="pl-agent" list="pl-agent-list" placeholder="Select or type agent name" style="width:100%">
+          <datalist id="pl-agent-list">${agentNames.map(function(n) { return '<option value="' + n + '">'; }).join('')}</datalist>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label class="agent-field-label" style="display:block;margin-bottom:4px">Template</label>
+        <textarea id="pl-template" rows="3" placeholder="You are a helpful assistant. {input}" style="font-size:.82rem"></textarea>
+      </div>
+      <div style="margin-bottom:12px">
+        <label class="agent-field-label" style="display:block;margin-bottom:4px">Notes</label>
+        <input type="text" id="pl-notes" placeholder="Optional notes about this prompt" style="width:100%">
+      </div>
+      <button class="btn btn-primary" onclick="saveNewPrompt()" style="padding:8px 20px">Save Prompt</button>
+    </div>
+
+    ${lib.length ? `
+    <!-- Prompt List Grouped by Agent -->
+    ${Object.entries(grouped).map(function(entry) {
+      var agent = entry[0], prompts = entry[1];
+      return '<div class="table-wrap" style="margin-bottom:16px">' +
+        '<div class="table-header">' +
+          '<div class="table-title" style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:var(--copper)"></span>' + agent + '</div>' +
+          '<div style="font-size:.75rem;color:var(--text-dim)">' + prompts.length + ' prompt' + (prompts.length !== 1 ? 's' : '') + '</div>' +
+        '</div>' +
+        '<table><thead><tr><th>Name</th><th>Template</th><th>Notes</th><th>Date</th><th style="text-align:right">Actions</th></tr></thead>' +
+        '<tbody>' + prompts.map(function(p) {
+          var date = new Date(p.createdAt).toLocaleDateString();
+          return '<tr>' +
+            '<td style="font-weight:500">' + (p.name || '(unnamed)') + '</td>' +
+            '<td style="font-size:.78rem;color:var(--text-secondary);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + truncText(p.template, 60) + '</td>' +
+            '<td style="font-size:.75rem;color:var(--text-dim)">' + truncText(p.notes || '', 30) + '</td>' +
+            '<td style="font-size:.72rem;color:var(--text-dim)">' + date + '</td>' +
+            '<td style="text-align:right;white-space:nowrap">' +
+              '<button class="btn btn-ghost" style="padding:3px 8px;font-size:.7rem;margin:0 2px" onclick="loadPromptToOptimizer(\'' + p.id + '\')">Use</button>' +
+              '<button class="btn btn-ghost" style="padding:3px 8px;font-size:.7rem;margin:0 2px;' + (promptLibraryCompare.left === p.id ? 'border-color:var(--copper);color:var(--copper)' : '') + '" onclick="setCompareLeft(\'' + p.id + '\')">A</button>' +
+              '<button class="btn btn-ghost" style="padding:3px 8px;font-size:.7rem;margin:0 2px;' + (promptLibraryCompare.right === p.id ? 'border-color:var(--blue);color:var(--blue)' : '') + '" onclick="setCompareRight(\'' + p.id + '\')">B</button>' +
+              '<button class="btn btn-ghost" style="padding:3px 8px;font-size:.7rem;margin:0 2px;color:var(--red)" onclick="deletePromptAndRefresh(\'' + p.id + '\')">Del</button>' +
+            '</td>' +
+          '</tr>';
+        }).join('') + '</tbody></table></div>';
+    }).join('')}
+
+    ${(leftPrompt || rightPrompt) ? `
+    <!-- Compare Panel -->
+    <div class="section-heading" style="font-size:1.1rem;margin-top:20px;margin-bottom:12px">Compare Prompts</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px">
+      <div style="background:var(--copper-dim);border:1px solid rgba(200,149,108,.15);border-radius:var(--radius-lg) 0 0 var(--radius-lg);padding:16px 20px">
+        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--copper);font-weight:600;margin-bottom:8px">Prompt A</div>
+        ${leftPrompt ? `
+          <div style="font-weight:500;font-size:.9rem;margin-bottom:4px">${leftPrompt.name}</div>
+          <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:10px">Agent: ${leftPrompt.agentName || 'N/A'}</div>
+          <div style="font-family:'DM Sans',monospace;font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${leftPrompt.template}</div>
+          ${leftPrompt.notes ? '<div style="font-size:.75rem;color:var(--text-dim);margin-top:8px;font-style:italic">' + leftPrompt.notes + '</div>' : ''}
+        ` : '<div style="color:var(--text-dim);font-size:.82rem">Click "A" on a prompt to set it here</div>'}
+      </div>
+      <div style="background:var(--blue-dim);border:1px solid rgba(96,165,250,.15);border-radius:0 var(--radius-lg) var(--radius-lg) 0;padding:16px 20px">
+        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);font-weight:600;margin-bottom:8px">Prompt B</div>
+        ${rightPrompt ? `
+          <div style="font-weight:500;font-size:.9rem;margin-bottom:4px">${rightPrompt.name}</div>
+          <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:10px">Agent: ${rightPrompt.agentName || 'N/A'}</div>
+          <div style="font-family:'DM Sans',monospace;font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${rightPrompt.template}</div>
+          ${rightPrompt.notes ? '<div style="font-size:.75rem;color:var(--text-dim);margin-top:8px;font-style:italic">' + rightPrompt.notes + '</div>' : ''}
+        ` : '<div style="color:var(--text-dim);font-size:.82rem">Click "B" on a prompt to set it here</div>'}
+      </div>
+    </div>
+    ` : ''}
+    ` : `
+    <!-- Empty state -->
+    <div class="metric-card" style="padding:40px;text-align:center">
+      <div style="font-size:2rem;margin-bottom:12px;opacity:.3">&#128218;</div>
+      <div style="font-family:var(--font-display);font-size:1.2rem;margin-bottom:8px">No Prompts Saved</div>
+      <div style="font-size:.85rem;color:var(--text-secondary);max-width:300px;margin:0 auto">Use the form above to save your first prompt template, or save one from the Prompt Optimizer.</div>
+    </div>
+    `}
+  `;
+}
+
+function saveNewPrompt() {
+  var name = document.getElementById('pl-name')?.value?.trim();
+  var agent = document.getElementById('pl-agent')?.value?.trim();
+  var template = document.getElementById('pl-template')?.value?.trim();
+  var notes = document.getElementById('pl-notes')?.value?.trim();
+  if (!name || !template) { alert('Please provide a name and template.'); return; }
+  addPrompt(name, agent || '', template, notes || '');
+  renderPromptLibrary();
+}
+window.saveNewPrompt = saveNewPrompt;
+
+function deletePromptAndRefresh(promptId) {
+  if (!confirm('Delete this prompt?')) return;
+  deletePrompt(promptId);
+  if (promptLibraryCompare.left === promptId) promptLibraryCompare.left = null;
+  if (promptLibraryCompare.right === promptId) promptLibraryCompare.right = null;
+  renderPromptLibrary();
+}
+window.deletePromptAndRefresh = deletePromptAndRefresh;
+
+function setCompareLeft(promptId) {
+  promptLibraryCompare.left = promptLibraryCompare.left === promptId ? null : promptId;
+  renderPromptLibrary();
+}
+window.setCompareLeft = setCompareLeft;
+
+function setCompareRight(promptId) {
+  promptLibraryCompare.right = promptLibraryCompare.right === promptId ? null : promptId;
+  renderPromptLibrary();
+}
+window.setCompareRight = setCompareRight;
+
+function loadPromptToOptimizer(promptId) {
+  var lib = loadPromptLibrary();
+  var p = lib.find(function(pr) { return pr.id === promptId; });
+  if (!p) return;
+  optimizerState.promptTemplate = p.template;
+  navigateTo('optimizer');
+}
+window.loadPromptToOptimizer = loadPromptToOptimizer;
+
+function saveCurrentPromptToLibrary() {
+  var template = document.getElementById('promptTemplate')?.value?.trim();
+  if (!template) { alert('No prompt template to save.'); return; }
+  var name = window.prompt('Prompt name:');
+  if (!name) return;
+  var agent = window.prompt('Agent name (optional):') || '';
+  addPrompt(name, agent, template, '');
+  alert('Saved to Prompt Library.');
+}
+window.saveCurrentPromptToLibrary = saveCurrentPromptToLibrary;
+
+// ===== GOAL VERIFICATION (LLM-based checkpoint analysis) =====
+async function loadPipelineFromBackend() {
+  if (pipelineState.results || pipelineState.loading) return;
+  if (!pipelineState.userGoal) return;
+
+  try {
+    pipelineState.loading = true;
+    const response = await fetch('http://localhost:5000/api/pipeline/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        traces: journeys,
+        user_goal: pipelineState.userGoal
+      })
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Goal verification failed');
+    }
+
+    pipelineState.results = result.results;
+    pipelineState.loading = false;
+    pipelineState.error = null;
+
+  } catch (error) {
+    console.warn('Backend goal verification failed:', error.message);
+    pipelineState.loading = false;
+    pipelineState.error = error.message;
+  }
+}
+
+function getTraceCheckpoints(traceId) {
+  if (pipelineState.results && pipelineState.results[traceId]) {
+    return pipelineState.results[traceId];
+  }
+  return null;
+}
+
+async function renderPipeline(selectedTrace) {
+  if (!dataLoaded) return renderEmptyState('page-pipeline', 'No Pipeline Data', 'Upload agent logs to run semantic pipeline analysis and detect communication issues between agents.');
+  // Load from backend if not already loaded
+  if (pipelineState.useBackend && !pipelineState.results && !pipelineState.loading) {
+    document.getElementById('page-pipeline').innerHTML = `
+      <div class="section-heading">Semantic Pipeline</div>
+      <div class="section-sub">Loading analysis from backend...</div>
+      <div style="padding:40px;text-align:center">
+        <div style="color:var(--copper);font-size:1rem">Analyzing agent communication patterns...</div>
+      </div>
+    `;
+    await loadPipelineFromBackend();
+    // Re-render after loading
+    renderPipeline(selectedTrace);
+    return;
+  }
+
+  const multiAgent = journeys.filter(j => j.samples.length > 1);
+  const sel = selectedTrace || (multiAgent[0]?.trace_id || journeys[0].trace_id);
+  const journey = journeys.find(j => j.trace_id === sel);
+  const analysis = journey ? analyzeEdges(journey) : { results:[], avg:0, stdev:0 };
+  const reds = analysis.results.filter(r => r.status === 'red');
+  const greens = analysis.results.filter(r => r.status === 'green');
+
+  // Global stats across ALL multi-agent journeys
+  let totalEdges = 0, totalRed = 0;
+  const allAnalyses = multiAgent.map(j => { const a = analyzeEdges(j); totalEdges += a.results.length; totalRed += a.results.filter(r=>r.status==='red').length; return { journey: j, analysis: a }; });
+
+  const backendStatus = pipelineState.useBackend ?
+    '<span style="color:var(--copper);font-size:.7rem;margin-left:8px">⚡ Backend Analysis</span>' :
+    '<span style="color:var(--text-dim);font-size:.7rem;margin-left:8px">⚠️ Client-side (backend unavailable)</span>';
+
+  document.getElementById('page-pipeline').innerHTML = `
+    <div class="section-heading">Semantic Pipeline ${backendStatus}</div>
+    <div class="section-sub">Agent communication analysis &mdash; detecting input/output drift across DAG edges using cosine similarity (threshold: 0.8).</div>
+    <div class="pipeline-summary anim-stagger">
+      <div class="stat-card green"><div class="stat-label">Total Edges Analyzed</div><div class="stat-value">${totalEdges}</div><div class="stat-sub">across ${multiAgent.length} multi-agent traces</div></div>
+      <div class="stat-card red"><div class="stat-label">Red Edges (Issues)</div><div class="stat-value">${totalRed}</div><div class="stat-sub">${totalEdges ? ((totalRed/totalEdges)*100).toFixed(0) : 0}% of all edges</div></div>
+      <div class="stat-card copper"><div class="stat-label">Avg Drift</div><div class="stat-value">${(allAnalyses.reduce((s,a) => s+a.analysis.avg,0)/Math.max(allAnalyses.length,1)).toFixed(3)}</div><div class="stat-sub">lower is better (0 = identical)</div></div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <select id="pipelineSelect" onchange="renderPipeline(this.value)" style="background:var(--card);padding:8px 12px;min-width:280px">
+        ${multiAgent.map(j => `<option value="${j.trace_id}" ${j.trace_id===sel?'selected':''}>${j.journey_name} (${j.samples.length} agents)</option>`).join('')}
+      </select>
+      <input id="pipelineGoal" type="text" placeholder="Enter user goal for hallucination check..."
+        value="${pipelineState.userGoal || ''}"
+        style="background:var(--card);padding:8px 12px;min-width:280px;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.82rem;flex:1"
+      />
+      <button class="btn btn-primary" style="padding:8px 16px;font-size:.82rem" onclick="pipelineState.userGoal = document.getElementById('pipelineGoal').value; pipelineState.results = null; loadPipelineFromBackend().then(function() { renderPipeline(document.getElementById('pipelineSelect')?.value); })">Verify</button>
+      <span style="font-size:.8rem;color:var(--text-secondary)">${analysis.results.length} edges &middot; ${reds.length} red &middot; avg drift ${analysis.avg.toFixed(3)} &middot; stdev ${analysis.stdev.toFixed(3)}</span>
+    </div>
+
+    <div class="dag-container">
+      <div class="dag-title">Edge Analysis DAG</div>
+      <div id="pipeline-dag-svg"></div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <div class="table-header"><div class="table-title">Edge Similarity Results</div></div>
+      <table class="edge-table">
+        <thead><tr><th>Edge</th><th>Similarity</th><th>Drift</th><th>Status</th><th>LLM Check</th></tr></thead>
+        <tbody>${analysis.results.map(r => {
+          const pct = (r.similarity * 100).toFixed(0);
+          const color = r.status === 'green' ? 'var(--green)' : 'var(--red)';
+          const verBadge = r.verification_status
+            ? (r.verification_status === 'cleared'
+              ? '<span class="edge-status green" style="font-size:.65rem">Cleared</span>'
+              : r.verification_status === 'verified_red'
+                ? '<span class="edge-status red" style="font-size:.65rem">Confirmed</span>'
+                : '<span style="color:var(--text-dim);font-size:.65rem">-</span>')
+            : '<span style="color:var(--text-dim);font-size:.65rem">-</span>';
+          return `<tr>
+            <td><span style="font-weight:500">${r.parent_name}</span> <span style="color:var(--text-dim)">&rarr;</span> <span style="font-weight:500">${r.child_name}</span></td>
+            <td><span class="sim-bar"><span class="sim-bar-fill" style="width:${pct}%;background:${color}"></span></span>${pct}%</td>
+            <td style="font-family:'DM Sans',monospace;font-size:.78rem;color:var(--text-secondary)">${r.diff.toFixed(4)}</td>
+            <td><span class="edge-status ${r.status}">${r.status === 'green' ? 'Pass' : 'Issue'}</span></td>
+            <td>${verBadge}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+
+    ${reds.length ? `
+    <div style="margin-top:20px">
+      <div class="section-heading" style="color:var(--red);font-size:1.1rem">Communication Issues Detected</div>
+      <div class="agent-cards anim-stagger">
+        ${reds.map(r => {
+          const child = journey.samples.find(s => s.agent_id === r.child_id);
+          if (!child) return '';
+          const isClearedPipe = r.verification_status === 'cleared';
+          const isConfirmedPipe = r.verification_status === 'verified_red';
+          const pipeBorderColor = isClearedPipe ? 'rgba(74,222,128,.3)' : 'rgba(248,113,113,.3)';
+          const pipeVerBadge = isClearedPipe
+            ? '<span style="background:rgba(74,222,128,.12);color:#4ade80;padding:2px 8px;border-radius:100px;font-size:.7rem;font-weight:600;margin-left:8px">LLM: Aligned</span>'
+            : (isConfirmedPipe
+              ? '<span style="background:var(--red-dim);color:var(--red);padding:2px 8px;border-radius:100px;font-size:.7rem;font-weight:600;margin-left:8px">LLM: Hallucinating</span>'
+              : '');
+          const pipeExplanation = r.verification_explanation
+            ? '<div class="agent-field"><div class="agent-field-label" style="color:' + (isClearedPipe ? '#4ade80' : 'var(--red)') + '">LLM Verdict</div><div class="agent-field-value">' + r.verification_explanation + '</div></div>'
+            : '';
+          return `<div class="agent-card" style="border-color:${pipeBorderColor}">
+            <div class="agent-card-header"><div class="agent-card-name"><span class="dot ${isClearedPipe ? 'dot-pass' : 'dot-fail'}"></span>${r.parent_name} &rarr; ${r.child_name}<span style="font-size:.75rem;color:var(--red);margin-left:8px">similarity: ${(r.similarity*100).toFixed(0)}%</span>${pipeVerBadge}</div></div>
+            <div class="agent-card-body">
+              <div class="agent-field"><div class="agent-field-label">Input (from parent)</div><div class="agent-field-value">${truncText(child.input,300)}</div></div>
+              <div class="agent-field"><div class="agent-field-label">Output (this agent)</div><div class="agent-field-value">${truncText(child.output,300)}</div></div>
+              ${pipeExplanation}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : `<div style="margin-top:20px;padding:20px;background:var(--green-dim);border:1px solid rgba(74,222,128,.2);border-radius:var(--radius-lg);font-size:.85rem;color:var(--green)">All edges pass similarity threshold. No communication issues detected in this trace.</div>`}
+
+    <div style="margin-top:24px">
+      <div class="section-heading" style="font-size:1.1rem">All Traces Summary</div>
+      <div class="table-wrap">
+        <table class="edge-table">
+          <thead><tr><th>Journey</th><th>Edges</th><th>Red</th><th>Avg Drift</th><th>Health</th></tr></thead>
+          <tbody>${allAnalyses.map(({journey: j, analysis: a}) => {
+            const redCount = a.results.filter(r=>r.status==='red').length;
+            return `<tr style="cursor:pointer" onclick="renderPipeline('${j.trace_id}')">
+              <td style="font-weight:500">${j.journey_name}</td>
+              <td>${a.results.length}</td>
+              <td style="color:${redCount?'var(--red)':'var(--text-secondary)'}">${redCount}</td>
+              <td style="font-family:'DM Sans',monospace;font-size:.78rem">${a.avg.toFixed(4)}</td>
+              <td><span class="edge-status ${redCount?'red':'green'}">${redCount?redCount+' issues':'Healthy'}</span></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  if (journey) renderDAGWithEdgeColors('pipeline-dag-svg', journey, analysis.results);
+}
+window.renderPipeline = renderPipeline;
+
+function renderDAGWithCheckpoints(containerId, journey, traceResult) {
+  const { positioned, edges, width, height } = layoutDAG(journey);
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const dagData = buildDAGData(journey);
+  const posMap = {};
+  positioned.forEach(p => { posMap[p.id] = p; });
+
+  // Build deviation and on-track node sets from checkpoint data
+  const deviationNodeSet = new Set();
+  const onTrackNodeSet = new Set();
+  if (traceResult && traceResult.checkpoints) {
+    traceResult.checkpoints.forEach(function(cp) {
+      var ids = cp.agent_ids || [];
+      if (cp.is_deviation) {
+        ids.forEach(function(id) { deviationNodeSet.add(id); });
+      } else {
+        ids.forEach(function(id) { onTrackNodeSet.add(id); });
+      }
+    });
+    // Remove from on-track if also in deviation (deviation wins)
+    deviationNodeSet.forEach(function(id) { onTrackNodeSet.delete(id); });
+  }
+
+  // Identify root nodes (no parents)
+  const rootSet = new Set();
+  Object.entries(dagData.parentsOf).forEach(([id, pArr]) => {
+    if (!pArr || pArr.length === 0) rootSet.add(id);
+  });
+
+  let svg = `<svg class="dag-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" style="max-width:100%">`;
+  svg += `<defs>
+    <marker id="arrow-d" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#2a2a3c"/></marker>
+    <filter id="glow-copper"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#c8956c" flood-opacity=".35"/></filter>
+    <filter id="glow-amber"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#fbbf24" flood-opacity=".35"/></filter>
+    <filter id="node-shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity=".3"/></filter>
+  </defs>`;
+
+  // Edges (neutral)
+  edges.forEach(([pid, cid]) => {
+    const p = posMap[pid], c = posMap[cid];
+    if (!p || !c) return;
+    const x1 = p.x + p.w, y1 = p.y + p.h / 2;
+    const x2 = c.x, y2 = c.y + c.h / 2;
+    const cx1 = x1 + (x2 - x1) * 0.5, cy1 = y1;
+    const cx2 = x1 + (x2 - x1) * 0.5, cy2 = y2;
+    svg += `<path class="dag-edge" d="M${x1},${y1} C${cx1},${cy1} ${cx2},${cy2} ${x2},${y2}" marker-end="url(#arrow-d)"/>`;
+  });
+
+  // Nodes
+  positioned.forEach(p => {
+    const isRoot = rootSet.has(p.id);
+    const isDeviation = deviationNodeSet.has(p.id);
+    const isOnTrack = onTrackNodeSet.has(p.id);
+
+    // Colors: deviation=amber, on-track=green, default=neutral
+    const fill = isDeviation ? 'rgba(251,191,36,.08)' : (isOnTrack ? 'rgba(74,222,128,.06)' : '#111118');
+    const stroke = isRoot ? '#c8956c' : (isDeviation ? 'rgba(251,191,36,.5)' : (isOnTrack ? 'rgba(74,222,128,.4)' : '#2a2a3c'));
+    const strokeW = isRoot && !isDeviation ? 1.5 : ((isDeviation || isOnTrack) ? 2 : 1);
+    const glowFilter = isDeviation ? 'url(#glow-amber)' : (isRoot ? 'url(#glow-copper)' : 'url(#node-shadow)');
+    const textColor = isDeviation ? '#fbbf24' : (isOnTrack ? '#4ade80' : '#e8e4df');
+    const dotColor = isDeviation ? '#fbbf24' : (isOnTrack ? '#4ade80' : '#4a4558');
+
+    const name = (p.node.agent_name || 'Agent').replace(/Agent$/,'').replace(/([A-Z])/g,' $1').trim();
+    const model = (p.node.model_parameters?.model || '').split('-').slice(0,2).join('-');
+    const latency = p.node.telemetry?.latency;
+    const latLabel = latency != null ? (latency < 1 ? (latency*1000).toFixed(0) + 'ms' : latency.toFixed(1) + 's') : '';
+
+    svg += `<g class="dag-node" onclick="showAgentPanel('${p.node.agent_id}','${journey.trace_id}')">`;
+    svg += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeW}" filter="${glowFilter}" rx="8" ry="8"/>`;
+
+    // Status dot (top-left)
+    svg += `<circle cx="${p.x + 14}" cy="${p.y + 14}" r="4" fill="${dotColor}"/>`;
+
+    // Agent name
+    const truncName = name.length > 22 ? name.substring(0,22)+'...' : name;
+    svg += `<text x="${p.x + p.w/2}" y="${p.y + 30}" text-anchor="middle" fill="${textColor}" font-size="12" font-weight="500" font-family="DM Sans,sans-serif">${truncName}</text>`;
+
+    // Model name
+    svg += `<text x="${p.x + p.w/2}" y="${p.y + 48}" text-anchor="middle" fill="#4a4558" font-size="9.5" font-family="DM Sans,sans-serif">${model}</text>`;
+
+    // Latency badge (bottom-right)
+    if (latLabel) {
+      const badgeW = latLabel.length * 6 + 10;
+      const bx = p.x + p.w - badgeW - 6;
+      const by = p.y + p.h - 18;
+      svg += `<rect x="${bx}" y="${by}" width="${badgeW}" height="14" rx="3" fill="rgba(96,165,250,.12)" stroke="rgba(96,165,250,.25)" stroke-width=".5"/>`;
+      svg += `<text x="${bx + badgeW/2}" y="${by + 10}" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="500" font-family="DM Sans,sans-serif">${latLabel}</text>`;
+    }
+
+    // Root badge (top-right)
+    if (isRoot) {
+      svg += `<rect x="${p.x + p.w - 38}" y="${p.y + 6}" width="32" height="13" rx="3" fill="rgba(200,149,108,.15)" stroke="rgba(200,149,108,.3)" stroke-width=".5"/>`;
+      svg += `<text x="${p.x + p.w - 22}" y="${p.y + 15}" text-anchor="middle" fill="#c8956c" font-size="7" font-weight="600" font-family="DM Sans,sans-serif">ROOT</text>`;
+    }
+
+    // Deviation badge (bottom-left)
+    if (isDeviation) {
+      const label = 'Off Track';
+      const bw = label.length * 6 + 10;
+      svg += `<rect x="${p.x + 6}" y="${p.y + p.h - 18}" width="${bw}" height="14" rx="3" fill="rgba(251,191,36,.12)" stroke="rgba(251,191,36,.3)" stroke-width=".5"/>`;
+      svg += `<text x="${p.x + 6 + bw/2}" y="${p.y + p.h - 8}" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="600" font-family="DM Sans,sans-serif">${label}</text>`;
+    }
+
+    // On-track badge (bottom-left)
+    if (isOnTrack) {
+      const label = 'On Track';
+      const bw = label.length * 6 + 10;
+      svg += `<rect x="${p.x + 6}" y="${p.y + p.h - 18}" width="${bw}" height="14" rx="3" fill="rgba(74,222,128,.12)" stroke="rgba(74,222,128,.3)" stroke-width=".5"/>`;
+      svg += `<text x="${p.x + 6 + bw/2}" y="${p.y + p.h - 8}" text-anchor="middle" fill="#4ade80" font-size="8" font-weight="600" font-family="DM Sans,sans-serif">${label}</text>`;
+    }
+
+    svg += `</g>`;
+  });
+
+  svg += `</svg>`;
+  container.innerHTML = svg;
+}
+
+// ===== PROMPT OPTIMIZER =====
+let optimizerState = {
+  fileName: null,
+  file: null,
+  promptTemplate: 'You are a helpful assistant. {input}',
+  targetScore: 0.85,
+  maxIters: 3,
+  results: [],
+  summary: null,
+  running: false,
+  error: null,
+  apiKey: localStorage.getItem('arcana-openai-key') || '',
+  model: localStorage.getItem('arcana-optimizer-model') || 'gpt-4o',
+  selectedAgent: null
+};
+
+// ===== PROMPT LIBRARY (localStorage persistence) =====
+let promptLibraryCompare = { left: null, right: null };
+
+function loadPromptLibrary() {
+  try {
+    var raw = localStorage.getItem('arcana-prompt-library');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+
+function savePromptLibrary(lib) {
+  localStorage.setItem('arcana-prompt-library', JSON.stringify(lib));
+}
+
+function addPrompt(name, agentName, template, notes) {
+  var lib = loadPromptLibrary();
+  var now = new Date().toISOString();
+  lib.push({ id: 'p-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5), name: name, agentName: agentName, template: template, notes: notes || '', createdAt: now, updatedAt: now });
+  savePromptLibrary(lib);
+  return lib;
+}
+
+function deletePrompt(promptId) {
+  var lib = loadPromptLibrary().filter(function(p) { return p.id !== promptId; });
+  savePromptLibrary(lib);
+  return lib;
+}
+
+function updatePrompt(promptId, updates) {
+  var lib = loadPromptLibrary().map(function(p) {
+    if (p.id === promptId) {
+      Object.keys(updates).forEach(function(k) { p[k] = updates[k]; });
+      p.updatedAt = new Date().toISOString();
+    }
+    return p;
+  });
+  savePromptLibrary(lib);
+  return lib;
+}
+
+const SAMPLE_EXCEL_DATA = [
+  { input: "Summarize: The cat sat on the mat.", "Expected Output": "A cat is sitting on a mat.", comments: "Keep it short." },
+  { input: "Rewrite: I love apples.", "Expected Output": "Apples are my favorite.", comments: "Paraphrase." },
+  { input: "Simplify: The precipitation was abundant.", "Expected Output": "It rained a lot.", comments: "Plain language." },
+  { input: "Formalize: gonna head out now.", "Expected Output": "I will be departing shortly.", comments: "Professional tone." }
+];
+
+function seqMatchSimilarity(a, b) {
+  if (!a && !b) return 1.0;
+  if (!a || !b) return 0.0;
+  const la = a.length, lb = b.length;
+  if (la === 0 || lb === 0) return 0.0;
+  let matches = 0;
+  const used = new Array(lb).fill(false);
+  for (let i = 0; i < la; i++) {
+    for (let j = 0; j < lb; j++) {
+      if (!used[j] && a[i] === b[j]) { matches++; used[j] = true; break; }
+    }
+  }
+  return (2 * matches) / (la + lb);
+}
+
+// ===== LLM CALL (direct OpenAI API from browser) =====
+async function callLLM(prompt, apiKey, model) {
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+    body: JSON.stringify({ model: model, messages: [{ role: 'user', content: prompt }], temperature: 0.7, max_tokens: 1024 })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(function() { return {}; });
+    throw new Error(err.error?.message || 'LLM API returned ' + resp.status);
+  }
+  const data = await resp.json();
+  return (data.choices[0].message.content || '').trim();
+}
+
+async function runOriginalRow(template, inputText, goldText, apiKey, model) {
+  var rendered = template.replace('{input}', inputText);
+  var output = await callLLM(rendered, apiKey, model);
+  var score = seqMatchSimilarity(output, goldText);
+  return { template: template, output: output, score: score, iterations: 1 };
+}
+
+async function runOptimizeRow(template, inputText, goldText, targetScore, maxIters, apiKey, model) {
+  var currentTemplate = template;
+  var lastOutput = '';
+  var lastScore = 0;
+  var iterations = 0;
+
+  for (var i = 0; i < maxIters; i++) {
+    iterations = i + 1;
+    var rendered = currentTemplate.replace('{input}', inputText);
+    lastOutput = await callLLM(rendered, apiKey, model);
+    lastScore = seqMatchSimilarity(lastOutput, goldText);
+
+    if (lastScore >= targetScore) break;
+
+    // Ask the LLM to improve the prompt template
+    var metaPrompt = 'You are a prompt engineering expert. A prompt template was used to process an input but the output did not match the expected result.\n\n' +
+      'Current prompt template:\n' + currentTemplate + '\n\n' +
+      'Input: ' + inputText + '\n' +
+      'LLM output: ' + lastOutput + '\n' +
+      'Expected output: ' + goldText + '\n' +
+      'Similarity score: ' + (lastScore * 100).toFixed(0) + '% (target: ' + (targetScore * 100).toFixed(0) + '%)\n\n' +
+      'Write an improved prompt template that will produce output closer to the expected result. ' +
+      'The template MUST contain {input} as a placeholder. ' +
+      'Return ONLY the improved template, nothing else.';
+
+    currentTemplate = await callLLM(metaPrompt, apiKey, model);
+
+    // Ensure the improved template still has {input}
+    if (!currentTemplate.includes('{input}')) {
+      currentTemplate = currentTemplate + ' {input}';
+    }
+  }
+
+  return { template: currentTemplate, output: lastOutput, score: lastScore, iterations: iterations };
+}
+
+function renderOptimizer() {
+  try {
+  const st = optimizerState;
+  const hasResults = st.results.length > 0;
+
+  // Use summary stats from API response
+  const origAvg = st.summary?.original_avg || 0;
+  const optAvg = st.summary?.optimized_avg || 0;
+  const improvement = st.summary?.improvement?.toFixed(0) || 0;
+
+  document.getElementById('page-optimizer').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div class="section-heading" style="margin-bottom:4px">Prompt Optimizer</div>
+        <div class="section-sub" style="margin-bottom:0">Iteratively optimize prompt templates against expected outputs from your dataset.</div>
+      </div>
+    </div>
+    ${st.error ? '<div style="background:var(--red-dim);border:1px solid rgba(248,113,113,.3);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:.82rem;color:var(--red)">' + st.error + '</div>' : ''}
+
+    <!-- Config bar -->
+    <div class="metric-card" style="margin-bottom:20px;padding:16px 20px">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:14px">
+        <div>
+          <label class="agent-field-label" style="margin-bottom:4px;display:block">Prompt Template</label>
+          <textarea id="promptTemplate" rows="2" style="font-size:.8rem" placeholder="Your prompt with {input} placeholder">${st.promptTemplate}</textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label class="agent-field-label" style="margin-bottom:3px;display:block">Target Score</label>
+            <input type="number" id="targetScore" value="${st.targetScore}" min="0" max="1" step="0.05" style="width:100%">
+          </div>
+          <div>
+            <label class="agent-field-label" style="margin-bottom:3px;display:block">Max Iterations</label>
+            <input type="number" id="maxIters" value="${st.maxIters}" min="1" max="10" step="1" style="width:100%">
+          </div>
+          <div>
+            <label class="agent-field-label" style="margin-bottom:3px;display:block">Model</label>
+            <select id="optimizerModel" style="width:100%;padding:6px 10px;background:var(--bg)" onchange="optimizerState.model=this.value;localStorage.setItem('arcana-optimizer-model',this.value)">
+              <option value="gpt-4o" ${st.model==='gpt-4o'?'selected':''}>gpt-4o</option>
+              <option value="gpt-4o-mini" ${st.model==='gpt-4o-mini'?'selected':''}>gpt-4o-mini</option>
+              <option value="gpt-4.1-mini" ${st.model==='gpt-4.1-mini'?'selected':''}>gpt-4.1-mini</option>
+              <option value="gpt-4.1" ${st.model==='gpt-4.1'?'selected':''}>gpt-4.1</option>
+            </select>
+          </div>
+          <div>
+            <label class="agent-field-label" style="margin-bottom:3px;display:block">Data Source</label>
+            <div class="upload-zone ${st.fileName ? 'active' : ''}" style="padding:6px 10px;border-width:1px;min-height:32px;display:flex;align-items:center;justify-content:center" onclick="document.getElementById('excelInput').click()">
+              <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelUpload(event)">
+              ${st.fileName
+                ? `<div style="color:var(--copper);font-size:.75rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${st.fileName}</div>`
+                : `<div style="font-size:.72rem;color:var(--text-dim)">Upload Excel/CSV</div>`}
+            </div>
+          </div>
+        </div>
+      </div>
+      ${st.preview ? `<div style="display:flex;gap:16px;align-items:center;padding:10px 0;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:.75rem">
+        <span style="color:var(--text-dim)">${st.preview.rowCount} rows</span>
+        <span style="color:var(--text-dim)">Columns: ${st.preview.inputCol ? '<span style="color:var(--green)">' + st.preview.inputCol + '</span>' : '<span style="color:var(--red)">input?</span>'}, ${st.preview.outputCol ? '<span style="color:var(--green)">' + st.preview.outputCol + '</span>' : '<span style="color:var(--red)">expected output?</span>'}${st.preview.commentsCol ? ', <span style="color:var(--text-secondary)">' + st.preview.commentsCol + '</span>' : ''}</span>
+        ${st.preview.agents.length ? '<span style="color:var(--copper)">Agents: ' + st.preview.agents.join(', ') + '</span>' : ''}
+      </div>
+      ${st.preview?.agents.length > 0 ? '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;margin-bottom:4px;font-size:.75rem"><label style="color:var(--text-dim);font-weight:500;white-space:nowrap">Optimize for Agent</label><select onchange="optimizerState.selectedAgent=this.value" style="flex:1;max-width:260px;font-family:\'DM Sans\',monospace;font-size:.78rem;border:1px solid var(--copper);border-radius:var(--radius-sm);padding:4px 8px;background:var(--bg);color:var(--text)">' + st.preview.agents.map(function(a){ return '<option value="' + a + '"' + (a === st.selectedAgent ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></div>' : ''}` : ''}
+      <div style="display:flex;align-items:end;gap:12px">
+        <div style="flex:1">
+          <label class="agent-field-label" style="margin-bottom:3px;display:block">OpenAI API Key <span style="color:var(--text-dim);font-weight:400">(stored locally, never sent to our servers)</span></label>
+          <input type="password" id="optimizerApiKey" value="${st.apiKey}" placeholder="sk-..." style="width:100%;font-family:'DM Sans',monospace;font-size:.78rem" onchange="optimizerState.apiKey=this.value;localStorage.setItem('arcana-openai-key',this.value)">
+        </div>
+        <button class="btn btn-ghost" style="padding:8px 14px;font-size:.82rem" onclick="saveCurrentPromptToLibrary()">
+          Save to Library
+        </button>
+        <button class="btn btn-primary" style="padding:8px 20px;font-size:.85rem" onclick="runOptimizer()" ${st.running ? 'disabled' : ''}>
+          ${st.running ? '<span style="display:inline-flex;align-items:center;gap:6px"><span class="spinner" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block"></span> Optimizing...</span>' : 'Run'}
+        </button>
+      </div>
+    </div>
+    ${st.running ? '<div id="optimizer-progress" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px"><div class="spinner" style="width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--copper);border-radius:50%;animation:spin .8s linear infinite"></div><span style="font-size:.88rem;color:var(--text)">Running optimization against backend...</span></div><div id="optimizer-elapsed" style="font-size:.72rem;color:var(--text-dim)">Sending data to LLM. This may take 15-30 seconds per row.</div></div>' : ''}
+
+    ${hasResults ? `
+    <!-- Score + metrics summary -->
+    <div class="stats-row anim-stagger" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+      <div class="stat-card red"><div class="stat-label">Original Avg</div><div class="stat-value">${(origAvg*100).toFixed(0)}%</div><div class="stat-sub">before optimization</div></div>
+      <div class="stat-card green"><div class="stat-label">Optimized Avg</div><div class="stat-value">${(optAvg*100).toFixed(0)}%</div><div class="stat-sub">after optimization</div></div>
+      <div class="stat-card copper"><div class="stat-label">Improvement</div><div class="stat-value">+${improvement}%</div><div class="stat-sub">${st.results.reduce((s,r)=>s+r.iterations,0)} total iterations</div></div>
+    </div>
+    <div class="stats-row anim-stagger" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="stat-card blue"><div class="stat-label">Rows Optimized</div><div class="stat-value">${st.results.length}</div><div class="stat-sub">${st.results.filter(r=>r.score>=st.targetScore).length} met target${st.summary?.agent_filter ? ' · ' + st.summary.agent_filter : ''}</div></div>
+      <div class="stat-card" style="border-color:var(--border)"><div class="stat-label">Total Latency</div><div class="stat-value">${st.summary?.total_latency_ms ? (st.summary.total_latency_ms/1000).toFixed(1) + 's' : '--'}</div><div class="stat-sub">${st.summary?.avg_latency_ms ? (st.summary.avg_latency_ms/1000).toFixed(1) + 's avg per row' : 'avg per row'}</div></div>
+      <div class="stat-card" style="border-color:var(--border)"><div class="stat-label">Total Cost</div><div class="stat-value">${st.summary?.total_cost_usd != null ? '$' + st.summary.total_cost_usd.toFixed(4) : '--'}</div><div class="stat-sub">${st.summary?.total_tokens ? st.summary.total_tokens.toLocaleString() + ' tokens' : 'tokens used'}</div></div>
+      <div class="stat-card" style="border-color:var(--border)"><div class="stat-label">Model</div><div class="stat-value" style="font-size:1rem">${st.summary?.model || st.model}</div><div class="stat-sub">${st.summary?.total_baseline_latency_ms ? 'baseline ' + (st.summary.total_baseline_latency_ms/1000).toFixed(1) + 's' : ''}</div></div>
+    </div>
+
+    <!-- ============ COMPARISON CHART ============ -->
+    <div class="metric-card" style="padding:20px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div class="section-heading" style="font-size:1rem;margin-bottom:2px">Score Comparison</div>
+          <div style="font-size:.72rem;color:var(--text-dim)">Original vs Optimized prompt similarity per row</div>
+        </div>
+        <div style="display:flex;gap:14px;font-size:.7rem;align-items:center">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--red);opacity:.7"></span> Original</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--green)"></span> Optimized</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:${st.results.length > 8 ? '4' : '8'}px;height:160px;padding-bottom:24px;position:relative">
+        <div style="position:absolute;left:0;right:0;bottom:80px;height:1px;background:var(--border);opacity:.4"></div>
+        <div style="position:absolute;left:-2px;bottom:78px;font-size:.55rem;color:var(--text-dim)">50%</div>
+        ${st.results.map((r, i) => {
+          const origH = Math.max(4, (r.original_score || 0) * 140);
+          const optH = Math.max(4, r.score * 140);
+          const won = r.score > (r.original_score || 0);
+          return '<div style="flex:1;display:flex;gap:2px;align-items:flex-end;min-width:0">' +
+            '<div style="flex:1;height:' + origH + 'px;background:var(--red);opacity:.55;border-radius:2px 2px 0 0;min-width:0" title="Row ' + (i+1) + ' Original: ' + ((r.original_score||0)*100).toFixed(0) + '%"></div>' +
+            '<div style="flex:1;height:' + optH + 'px;background:var(--green);border-radius:2px 2px 0 0;min-width:0;' + (won ? 'box-shadow:0 0 8px rgba(74,222,128,.3)' : '') + '" title="Row ' + (i+1) + ' Optimized: ' + (r.score*100).toFixed(0) + '%"></div>' +
+          '</div>';
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:${st.results.length > 8 ? '4' : '8'}px;border-top:1px solid var(--border);padding-top:6px">
+        ${st.results.map((r, i) => '<div style="flex:1;text-align:center;font-size:.58rem;color:var(--text-dim)">' + (i+1) + '</div>').join('')}
+      </div>
+    </div>
+
+    <!-- ============ PER-ROW LATENCY CHART ============ -->
+    ${st.results[0]?.latency_ms ? `
+    <div class="metric-card" style="padding:20px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div class="section-heading" style="font-size:1rem;margin-bottom:2px">Latency per Row</div>
+          <div style="font-size:.72rem;color:var(--text-dim)">Time spent on LLM calls (eval + optimizer iterations)</div>
+        </div>
+        <div style="font-size:.72rem;color:var(--text-dim)">avg ${st.summary?.avg_latency_ms ? (st.summary.avg_latency_ms/1000).toFixed(1) + 's' : ''}</div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:${st.results.length > 8 ? '6' : '12'}px;height:100px;padding-bottom:24px">
+        ${st.results.map((r, i) => {
+          const maxLat = Math.max(...st.results.map(x => x.latency_ms || 1));
+          const h = Math.max(6, ((r.latency_ms || 0) / maxLat) * 90);
+          const latColor = (r.latency_ms || 0) > (st.summary?.avg_latency_ms || 99999) ? 'var(--yellow)' : 'var(--copper)';
+          return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0">' +
+            '<div style="font-size:.55rem;color:var(--text-dim)">' + ((r.latency_ms||0)/1000).toFixed(1) + 's</div>' +
+            '<div style="width:100%;height:' + h + 'px;background:' + latColor + ';border-radius:3px 3px 0 0;opacity:.8"></div>' +
+          '</div>';
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:${st.results.length > 8 ? '6' : '12'}px;border-top:1px solid var(--border);padding-top:6px">
+        ${st.results.map((r, i) => '<div style="flex:1;text-align:center;font-size:.58rem;color:var(--text-dim)">R' + (i+1) + '</div>').join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- ============ ORIGINAL PROMPT RESULTS ============ -->
+    <div class="section-heading" style="font-size:1.1rem;margin-bottom:8px;color:var(--red);display:flex;align-items:center;gap:8px">
+      <span style="width:10px;height:10px;border-radius:50%;background:var(--red);flex-shrink:0"></span>
+      Original Prompt Results
+    </div>
+    <div style="background:var(--red-dim);border:1px solid rgba(248,113,113,.15);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">
+      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--red);font-weight:600;margin-bottom:6px">Prompt Template Used</div>
+      <div style="font-family:'DM Sans',monospace;font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${st.promptTemplate}</div>
+      <div style="font-size:.72rem;color:var(--text-dim);margin-top:8px">Average similarity: ${(origAvg*100).toFixed(0)}%</div>
+    </div>
+    <div class="table-wrap" style="margin-bottom:24px">
+      <table>
+        <thead><tr><th style="width:30px">#</th><th>Input</th><th>Expected Output</th><th>LLM Response</th><th style="width:70px">Score</th></tr></thead>
+        <tbody>${st.results.map((r, i) => {
+          const origScore = r.original_score || 0;
+          const origColor = origScore >= 0.85 ? 'var(--green)' : origScore >= 0.6 ? 'var(--yellow)' : 'var(--red)';
+          return `<tr>
+            <td style="color:var(--text-dim);font-size:.75rem">${i+1}</td>
+            <td style="font-size:.8rem;max-width:200px">${truncText(r.input, 60)}</td>
+            <td style="font-size:.8rem;color:var(--copper);max-width:200px">${truncText(r.gold, 60)}</td>
+            <td style="font-size:.8rem;color:var(--text-secondary);max-width:200px">${truncText(r.original_output || '', 60)}</td>
+            <td><span style="font-family:var(--font-display);font-size:1rem;color:${origColor}">${(origScore*100).toFixed(0)}%</span></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+
+    <!-- ============ OPTIMIZED PROMPT RESULTS ============ -->
+    <div class="section-heading" style="font-size:1.1rem;margin-bottom:8px;color:var(--green);display:flex;align-items:center;gap:8px">
+      <span style="width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0"></span>
+      Optimized Prompt Results
+    </div>
+    <div style="background:var(--green-dim);border:1px solid rgba(74,222,128,.15);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">
+      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green);font-weight:600;margin-bottom:6px">Prompt Template Used</div>
+      <div style="font-family:'DM Sans',monospace;font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${st.results[st.results.length-1].template}</div>
+      <div style="font-size:.72rem;color:var(--text-dim);margin-top:8px">Average similarity: ${(optAvg*100).toFixed(0)}%</div>
+    </div>
+    <div class="table-wrap" style="margin-bottom:24px">
+      <table>
+        <thead><tr><th style="width:30px">#</th><th>Input</th><th>Expected Output</th><th>LLM Response</th><th style="width:70px">Score</th><th style="width:60px">Delta</th><th style="width:70px">Latency</th><th style="width:60px">Cost</th></tr></thead>
+        <tbody>${st.results.map((r, i) => {
+          const origScore = r.original_score || 0;
+          const optColor = r.score >= 0.85 ? 'var(--green)' : r.score >= 0.6 ? 'var(--yellow)' : 'var(--red)';
+          const delta = ((r.score - origScore) * 100).toFixed(0);
+          const won = r.score > origScore;
+          return `<tr style="${won ? 'background:rgba(74,222,128,.03)' : ''}">
+            <td style="color:var(--text-dim);font-size:.75rem">${i+1}</td>
+            <td style="font-size:.8rem;max-width:200px">${truncText(r.input, 60)}</td>
+            <td style="font-size:.8rem;color:var(--copper);max-width:200px">${truncText(r.gold, 60)}</td>
+            <td style="font-size:.8rem;color:var(--text);max-width:200px">${truncText(r.output, 60)}</td>
+            <td><span style="font-family:var(--font-display);font-size:1rem;color:${optColor}">${(r.score*100).toFixed(0)}%</span></td>
+            <td><span style="font-size:.78rem;font-weight:600;color:${parseInt(delta)>=0?'var(--green)':'var(--red)'}">${parseInt(delta)>=0?'+':''}${delta}%</span></td>
+            <td style="font-size:.72rem;color:var(--text-dim)">${r.latency_ms ? (r.latency_ms/1000).toFixed(1) + 's' : '--'}</td>
+            <td style="font-size:.72rem;color:var(--text-dim)">${r.cost_usd != null ? '$' + r.cost_usd.toFixed(4) : '--'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+
+    <!-- ============ OPTIMIZED PROMPT (copyable) ============ -->
+    <div class="metric-card" style="padding:20px;border-color:rgba(74,222,128,.25);margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-family:var(--font-display);font-size:1.2rem;color:var(--green)">Optimized Prompt</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="navigator.clipboard.writeText(optimizerState.results[optimizerState.results.length-1].template);this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="saveCurrentPromptToLibrary()">Save to Library</button>
+        </div>
+      </div>
+      <div style="font-family:'DM Sans',monospace;font-size:.88rem;color:var(--text);line-height:1.7;padding:16px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);white-space:pre-wrap">${st.results[st.results.length-1].template}</div>
+      <div style="display:flex;gap:16px;margin-top:12px;font-size:.75rem;color:var(--text-dim)">
+        <span>Avg score: <span style="color:var(--green)">${(optAvg*100).toFixed(0)}%</span> (was ${(origAvg*100).toFixed(0)}%)</span>
+        <span>Improvement: <span style="color:var(--green)">+${improvement}%</span></span>
+        <span>${st.results.reduce((s,r)=>s+r.iterations,0)} total iterations across ${st.results.length} rows</span>
+      </div>
+    </div>
+    ` : `
+    <!-- Empty state -->
+    <div class="metric-card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:1fr 1fr">
+        <div style="padding:30px;border-right:1px solid var(--border);text-align:center">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--red);font-weight:600;margin-bottom:12px">Original Prompt Results</div>
+          <div style="color:var(--text-dim);font-size:.82rem">Run the optimizer to see the LLM output from your current prompt template</div>
+        </div>
+        <div style="padding:30px;text-align:center">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green);font-weight:600;margin-bottom:12px">Optimized Prompt Results</div>
+          <div style="color:var(--text-dim);font-size:.82rem">The optimized prompt and its results will appear here</div>
+        </div>
+      </div>
+      <div style="padding:20px;border-top:1px solid var(--border);text-align:center;background:var(--surface)">
+        <div style="font-size:.82rem;color:var(--text-secondary);margin-bottom:8px">Upload an Excel/CSV file, enter your API key, and click Run</div>
+        <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:6px">Your file should have columns: <code style="background:var(--border);padding:1px 6px;border-radius:3px">input</code>, <code style="background:var(--border);padding:1px 6px;border-radius:3px">Expected Output</code>, and optionally <code style="background:var(--border);padding:1px 6px;border-radius:3px">comments</code></div>
+        <div style="font-size:.68rem;color:var(--text-dim)">Your prompt template is sent to the LLM for each row. The output is compared against the expected output. If below target, the prompt is iteratively refined.</div>
+      </div>
+    </div>
+    `}
+  `;
+  } catch (renderErr) {
+    console.error('renderOptimizer error:', renderErr);
+    document.getElementById('page-optimizer').innerHTML = '<div style="padding:40px;text-align:center"><div class="section-heading" style="color:var(--red);margin-bottom:12px">Rendering Error</div><div style="font-size:.85rem;color:var(--text-secondary);margin-bottom:16px">' + renderErr.message + '</div><button class="btn btn-primary" onclick="optimizerState.results=[];optimizerState.summary=null;optimizerState.error=null;renderOptimizer()">Reset Optimizer</button></div>';
+  }
+}
+window.renderOptimizer = renderOptimizer;
+
+async function handleExcelUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Store the File object — the DOM input gets destroyed on re-render
+  optimizerState.file = file;
+  optimizerState.fileName = file.name;
+  optimizerState.preview = null;
+
+  // Parse immediately to extract columns, agent names, and row count
+  try {
+    var data = await readExcelFile(file);
+    if (data && data.length) {
+      var headers = Object.keys(data[0]);
+      var agentCol = resolveColumn(headers, 'agent') || resolveColumn(headers, 'agent_name');
+      var agents = [];
+      if (agentCol) {
+        var seen = {};
+        data.forEach(function(row) {
+          var name = String(row[agentCol] || '').trim();
+          if (name && !seen[name]) { seen[name] = true; agents.push(name); }
+        });
+      }
+      optimizerState.preview = {
+        headers: headers,
+        rowCount: data.length,
+        agents: agents,
+        inputCol: resolveColumn(headers, 'input'),
+        outputCol: resolveColumn(headers, 'expected output') || resolveColumn(headers, 'expected') || resolveColumn(headers, 'gold'),
+        commentsCol: resolveColumn(headers, 'comments')
+      };
+      optimizerState.selectedAgent = agents.length ? agents[0] : null;
+    }
+  } catch (e) {
+    // Preview failed — will show error at run time
+  }
+
+  renderOptimizer();
+}
+window.handleExcelUpload = handleExcelUpload;
+
+async function runOptimizer() {
+  var template = document.getElementById('promptTemplate')?.value || optimizerState.promptTemplate;
+  var targetScore = parseFloat(document.getElementById('targetScore')?.value || optimizerState.targetScore);
+  var maxIters = parseInt(document.getElementById('maxIters')?.value || optimizerState.maxIters);
+  var apiKey = document.getElementById('optimizerApiKey')?.value || optimizerState.apiKey;
+  var model = document.getElementById('optimizerModel')?.value || optimizerState.model;
+
+  // Use stored File object (DOM input is destroyed on re-render)
+  var uploadedFile = optimizerState.file;
+  if (!uploadedFile) {
+    alert('Please upload an Excel or CSV file with your test data.');
+    return;
+  }
+
+  if (!template || !template.includes('{input}')) {
+    alert('Please provide a prompt template with {input} placeholder.');
+    return;
+  }
+
+  if (!apiKey) {
+    alert('Please enter your OpenAI API key to run the optimizer.');
+    return;
+  }
+
+  // Persist state
+  optimizerState.promptTemplate = template;
+  optimizerState.targetScore = targetScore;
+  optimizerState.maxIters = maxIters;
+  optimizerState.apiKey = apiKey;
+  optimizerState.model = model;
+  optimizerState.error = null;
+  localStorage.setItem('arcana-openai-key', apiKey);
+  localStorage.setItem('arcana-optimizer-model', model);
+  optimizerState.running = true;
+  renderOptimizer();
+
+  // Start elapsed timer
+  var startTime = Date.now();
+  var timerInterval = setInterval(function() {
+    var el = document.getElementById('optimizer-elapsed');
+    if (el) {
+      var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+      el.textContent = 'Elapsed: ' + elapsed + 's — LLM calls in progress (baseline eval + optimization per row)...';
+    }
+  }, 1000);
+
+  // Check backend health
+  var backendAvailable = false;
+  try {
+    var healthResp = await fetch('http://localhost:5000/health', { signal: AbortSignal.timeout(3000) });
+    backendAvailable = healthResp.ok;
+  } catch (e) {
+    backendAvailable = false;
+  }
+
+  if (backendAvailable) {
+    try {
+      var formData = new FormData();
+      formData.append('file', uploadedFile);
+      formData.append('prompt_template', template);
+      formData.append('target_score', targetScore.toString());
+      formData.append('max_iters', maxIters.toString());
+      formData.append('input_col', optimizerState.preview?.inputCol || 'input');
+      formData.append('gold_col', optimizerState.preview?.outputCol || 'Expected Output');
+      if (optimizerState.preview?.commentsCol) {
+        formData.append('comments_col', optimizerState.preview.commentsCol);
+      }
+      formData.append('eval_model', model);
+      formData.append('optimizer_model', model);
+      if (optimizerState.selectedAgent) {
+        formData.append('agent_filter', optimizerState.selectedAgent);
+      }
+
+      var response = await fetch('http://localhost:5000/api/optimizer/run', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        var errBody = await response.text();
+        try { errBody = JSON.parse(errBody).error || errBody; } catch(e) {}
+        throw new Error('Server returned ' + response.status + ': ' + errBody);
+      }
+
+      var result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Optimization failed');
+      if (!result.results || !result.results.length) throw new Error('No results returned from backend');
+
+      optimizerState.results = result.results.map(function(r) { return {
+        row_index: r.row_index, input: r.input, gold: r.gold, output: r.output,
+        score: r.score, iterations: r.iterations, template: r.template,
+        comments: r.comments, original_output: r.original_output, original_score: r.original_score,
+        latency_ms: r.latency_ms, original_latency_ms: r.original_latency_ms,
+        prompt_tokens: r.prompt_tokens, completion_tokens: r.completion_tokens,
+        total_tokens: r.total_tokens, cost_usd: r.cost_usd
+      }; });
+      optimizerState.summary = result.summary;
+      optimizerState.error = null;
+      optimizerState.running = false;
+      clearInterval(timerInterval);
+      renderOptimizer();
+
+    } catch (error) {
+      optimizerState.running = false;
+      optimizerState.error = error.message;
+      clearInterval(timerInterval);
+      renderOptimizer();
+    }
+
+  } else {
+    // Client-side: parse Excel locally and call LLM directly via OpenAI API
+    try {
+      var data = await readExcelFile(uploadedFile);
+      if (!data || !data.length) throw new Error('No data rows found in file');
+
+      // Resolve column names: case-insensitive fuzzy match against actual headers
+      var headers = Object.keys(data[0]);
+      var inputCol = resolveColumn(headers, 'input');
+      var goldCol = resolveColumn(headers, 'expected output') || resolveColumn(headers, 'expected') || resolveColumn(headers, 'gold');
+      var commentsCol = resolveColumn(headers, 'comments');
+      var agentCol = resolveColumn(headers, 'agent') || resolveColumn(headers, 'agent_name');
+
+      if (!inputCol) throw new Error('Could not find an "input" column. Found columns: ' + headers.join(', '));
+      if (!goldCol) throw new Error('Could not find an "Expected Output" column. Found columns: ' + headers.join(', '));
+
+      if (optimizerState.selectedAgent && agentCol) {
+        data = data.filter(function(row) {
+          return String(row[agentCol] || '').trim() === optimizerState.selectedAgent;
+        });
+      }
+      if (!data.length) throw new Error('No rows found for agent "' + (optimizerState.selectedAgent || 'all') + '". Check that the agent name matches your data.');
+
+      var results = [];
+      for (var i = 0; i < data.length; i++) {
+        var row = data[i];
+        var inputText = String(row[inputCol] || '');
+        var goldText = String(row[goldCol] || '');
+        if (!inputText) continue;
+
+        // Step 1: Run original prompt through LLM
+        var orig = await runOriginalRow(template, inputText, goldText, apiKey, model);
+
+        // Step 2: Iteratively optimize prompt to match gold output
+        var opt = await runOptimizeRow(template, inputText, goldText, targetScore, maxIters, apiKey, model);
+
+        results.push({
+          row_index: i,
+          input: inputText,
+          gold: goldText,
+          output: opt.output,
+          score: opt.score,
+          iterations: opt.iterations,
+          template: opt.template,
+          comments: commentsCol ? String(row[commentsCol] || '') : '',
+          original_output: orig.output,
+          original_score: orig.score
+        });
+      }
+
+      if (!results.length) throw new Error('No valid rows with input data found. Check that the "' + inputCol + '" column has values.');
+
+      var origAvg = results.reduce(function(s,r) { return s + r.original_score; }, 0) / results.length;
+      var optAvg = results.reduce(function(s,r) { return s + r.score; }, 0) / results.length;
+
+      optimizerState.results = results;
+      optimizerState.summary = {
+        total_rows: results.length,
+        original_avg: origAvg,
+        optimized_avg: optAvg,
+        improvement: ((optAvg - origAvg) * 100),
+        total_iterations: results.reduce(function(s,r) { return s + r.iterations; }, 0),
+        met_target: results.filter(function(r) { return r.score >= targetScore; }).length
+      };
+      optimizerState.error = null;
+      optimizerState.running = false;
+      clearInterval(timerInterval);
+      renderOptimizer();
+
+    } catch (err) {
+      optimizerState.running = false;
+      optimizerState.error = err.message;
+      clearInterval(timerInterval);
+      renderOptimizer();
+    }
+  }
+}
+window.runOptimizer = runOptimizer;
+
+// Read Excel/CSV file client-side using SheetJS
+function readExcelFile(file) {
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+        resolve(rows);
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = function() { reject(new Error('Failed to read file')); };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Fuzzy column resolver: finds the actual header that best matches a target name
+function resolveColumn(headers, target) {
+  var tLower = target.toLowerCase().replace(/[\s_-]/g, '');
+  // Pass 1: exact match (case-insensitive)
+  for (var i = 0; i < headers.length; i++) {
+    if (headers[i].toLowerCase().replace(/[\s_-]/g, '') === tLower) return headers[i];
+  }
+  // Pass 2: header contains target or target contains header
+  for (var i = 0; i < headers.length; i++) {
+    var hLower = headers[i].toLowerCase().replace(/[\s_-]/g, '');
+    if (hLower.indexOf(tLower) !== -1 || tLower.indexOf(hLower) !== -1) return headers[i];
+  }
+  return null;
+}
+
+// ===== WORKFLOW EXECUTION =====
+let workflowDialog = null;
+let workflowState = {
+  running: false,
+  trace_id: null,
+  status: null
+};
+
+function showWorkflowDialog() {
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'workflow-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);width:600px;max-width:90vw;max-height:80vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5)';
+
+  dialog.innerHTML = `
+    <div style="padding:24px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-family:var(--font-display);font-size:1.4rem;color:var(--copper)">Run Multi-Agent Workflow</div>
+        <button onclick="closeWorkflowDialog()" style="background:none;border:none;color:var(--text-dim);font-size:1.5rem;cursor:pointer;padding:0;width:30px;height:30px">&times;</button>
+      </div>
+      <div style="font-size:.8rem;color:var(--text-secondary);margin-top:4px">Execute a multi-agent system with your custom goal</div>
+    </div>
+
+    <div style="padding:24px">
+      <div style="margin-bottom:20px">
+        <label class="agent-field-label" style="display:block;margin-bottom:6px">Workflow Type</label>
+        <select id="workflowType" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-size:.85rem">
+          <option value="trip_booking">Trip Booking (6 agents, diamond pattern)</option>
+          <option value="refund_request">Refund Request (3 agents, fan-out)</option>
+          <option value="quote_generation">Quote Generation (4 agents, diamond)</option>
+          <option value="custom">Custom Workflow</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label class="agent-field-label" style="display:block;margin-bottom:6px">User Goal</label>
+        <textarea id="workflowGoal" rows="4" placeholder="E.g., Book a flight from London to Tokyo for 2 adults, departing March 15th" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-size:.85rem;resize:vertical"></textarea>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label class="agent-field-label" style="display:block;margin-bottom:6px">
+          Configuration
+          <span style="color:var(--text-dim);font-weight:400;margin-left:6px">(optional JSON)</span>
+        </label>
+        <textarea id="workflowConfig" rows="3" placeholder='{"max_agents": 10}' style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-size:.85rem;font-family:monospace;resize:vertical"></textarea>
+      </div>
+
+      <div id="workflowStatus" style="margin-bottom:16px;padding:12px;background:var(--blue-dim);border:1px solid rgba(96,165,250,.2);border-radius:var(--radius-md);display:none">
+        <div style="font-size:.75rem;color:var(--blue);font-weight:600;margin-bottom:4px">Status</div>
+        <div id="workflowStatusText" style="font-size:.82rem;color:var(--text-secondary)"></div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="closeWorkflowDialog()" class="btn" style="padding:10px 20px">Cancel</button>
+        <button onclick="executeWorkflow()" id="workflowRunBtn" class="btn btn-primary" style="padding:10px 30px">
+          <span id="workflowRunBtnText">Execute</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+  workflowDialog = overlay;
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeWorkflowDialog();
+  });
+}
+window.showWorkflowDialog = showWorkflowDialog;
+
+function closeWorkflowDialog() {
+  if (workflowDialog) {
+    workflowDialog.remove();
+    workflowDialog = null;
+  }
+}
+window.closeWorkflowDialog = closeWorkflowDialog;
+
+async function executeWorkflow() {
+  const goal = document.getElementById('workflowGoal')?.value?.trim();
+  const workflowType = document.getElementById('workflowType')?.value;
+  const configText = document.getElementById('workflowConfig')?.value?.trim();
+
+  if (!goal) {
+    alert('Please enter a user goal');
+    return;
+  }
+
+  let config = {};
+  if (configText) {
+    try {
+      config = JSON.parse(configText);
+    } catch (e) {
+      alert('Invalid JSON in configuration field');
+      return;
+    }
+  }
+
+  // Update UI
+  const btn = document.getElementById('workflowRunBtn');
+  const btnText = document.getElementById('workflowRunBtnText');
+  const statusDiv = document.getElementById('workflowStatus');
+  const statusText = document.getElementById('workflowStatusText');
+
+  btn.disabled = true;
+  btnText.textContent = 'Running...';
+  statusDiv.style.display = 'block';
+  statusText.textContent = 'Sending request to backend...';
+
+  workflowState.running = true;
+
+  try {
+    statusText.innerHTML = 'Connecting to backend...';
+
+    const response = await fetch('http://localhost:5000/api/workflow/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        goal: goal,
+        workflow_type: workflowType,
+        config: config
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Workflow request failed');
+    }
+
+    // Read the SSE stream
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalJourney = null;
+    let traceId = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse SSE events from buffer
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() || '';
+
+      for (const part of parts) {
+        let eventData = null;
+        for (const line of part.split('\n')) {
+          if (line.startsWith('data: ')) {
+            try { eventData = JSON.parse(line.slice(6)); } catch (_) {}
+          }
+        }
+        if (!eventData) continue;
+
+        const evt = eventData.type;
+        const d = eventData.data;
+
+        if (evt === 'level_start') {
+          const names = d.agents.join(' + ');
+          const tag = d.parallel
+            ? '<span style="color:var(--purple);font-size:.8em">PARALLEL</span> '
+            : '';
+          statusText.innerHTML = tag + 'Level ' + d.level + '/' + d.total_levels + ': starting <span style="color:var(--copper)">' + names + '</span>';
+        } else if (evt === 'agent_start') {
+          const pct = Math.round((d.completed / d.total) * 100);
+          const peerNote = d.parallel ? ' <span style="color:var(--purple);font-size:.8em">(parallel with ' + d.level_peers.filter(n => n !== d.name).join(', ') + ')</span>' : '';
+          statusText.innerHTML = '<span style="color:var(--copper)">' + d.name + '</span> — ' + d.role + peerNote + '<br><span style="color:var(--text-dim);font-size:.85em">' + d.completed + '/' + d.total + ' agents complete (' + pct + '%)</span>';
+        } else if (evt === 'agent_done') {
+          const pct = Math.round((d.completed / d.total) * 100);
+          statusText.innerHTML = '<span style="color:var(--green)">&#10003;</span> <span style="color:var(--copper)">' + d.name + '</span> done <span style="color:var(--text-dim)">(' + d.latency + 's)</span> — ' + d.completed + '/' + d.total + ' (' + pct + '%)';
+        } else if (evt === 'complete') {
+          traceId = d.trace_id;
+          finalJourney = d.journey;
+        }
+      }
+    }
+
+    if (!finalJourney) {
+      throw new Error('Stream ended without completion event');
+    }
+
+    // Add the new journey to the app data
+    if (finalJourney.samples) {
+      ensureAgentIds(finalJourney);
+      journeys.push(finalJourney);
+      DATA.journeys.push(finalJourney);
+      dataLoaded = true;
+    }
+
+    // Persist the user's goal so the DAG viewer shows it
+    pipelineState.userGoal = goal;
+    pipelineState.results = null;
+
+    // Show success
+    statusDiv.style.cssText = 'margin-bottom:16px;padding:12px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:var(--radius-md);display:block';
+    statusText.style.color = 'var(--green)';
+    statusText.innerHTML = 'Workflow complete! Trace: ' + traceId + ' (' + finalJourney.samples.length + ' agents)';
+
+    // Navigate to the new trace in DAG viewer
+    setTimeout(() => {
+      closeWorkflowDialog();
+      navigateTo('dagviewer');
+      setTimeout(() => {
+        renderDAGViewer(traceId);
+      }, 300);
+    }, 1500);
+
+  } catch (error) {
+    statusDiv.style.cssText += 'background:var(--red-dim);border-color:rgba(248,113,113,.2)';
+    statusText.style.color = 'var(--red)';
+    statusText.textContent = 'Error: ' + error.message;
+    btn.disabled = false;
+    btnText.textContent = 'Execute';
+  } finally {
+    workflowState.running = false;
+  }
+}
+window.executeWorkflow = executeWorkflow;
+
+// ===== INIT =====
+// Auto-load test data if available
+fetch('data.json').then(r => r.ok ? r.json() : null).then(json => {
+  if (json) {
+    const data = normalizeUploadedJSON(json);
+    if (data) {
+      loadData(data);
+      navigateTo('dagviewer');
+    }
+  }
+}).catch(() => {});
+renderOverview();
+</script>
+</body>
+</html>

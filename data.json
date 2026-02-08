@@ -1,0 +1,204 @@
+
+{
+  "dataset_id": "eval-2026-02-07",
+  "records": [
+    {
+      "trace_id": "tr-9921-x",
+      "journey_name": "Trip Pricing",
+      "agent_id": "agent-25-pricing",
+      "parent_id": "agent-24-root",
+      "agent_name": "Agent_25_Pricing_Specialist",
+      "input": "Calculate the total for a flight from London to Paris for 2 adults.",
+      "output": "The total for 2 adults from London, Ontario to Paris is $1,200.",
+      "core_payload": {
+        "tool_calls": [
+          {
+            "function_name": "fetch_fares",
+            "arguments": {
+              "origin": "London",
+              "destination": "Paris",
+              "adults": 2,
+              "currency": "USD"
+            }
+          }
+        ],
+        "reasoning_blocks": [
+          {
+            "type": "analysis",
+            "content": "User did not specify country for London; assume UK."
+          }
+        ]
+      },
+      "telemetry": {
+        "latency_ms": 450,
+        "ttft_ms": 120,
+        "tokens_in": 98,
+        "tokens_out": 112
+      },
+      "metadata": {
+        "model": "gpt-4o-mini",
+        "environment": "production",
+        "session_id": "sess-18c9",
+        "customer_plan": "pro"
+      },
+      "status": "success",
+      "user_feedback": "negative",
+      "production_eval_score": 0.92,
+      "errors": []
+    },
+    {
+      "trace_id": "tr-9921-x",
+      "journey_name": "Trip Pricing",
+      "agent_id": "agent-26-checker",
+      "parent_id": "agent-25-pricing",
+      "agent_name": "Agent_26_Policy_Checker",
+      "input": "Verify fare rules and refundability for the quoted itinerary.",
+      "output": "Fare is non-refundable; changes allowed with a fee.",
+      "core_payload": {
+        "tool_calls": [
+          {
+            "function_name": "get_fare_rules",
+            "arguments": {
+              "fare_id": "FR-8122",
+              "carrier": "BA"
+            }
+          }
+        ]
+      },
+      "telemetry": {
+        "latency_ms": 610,
+        "ttft_ms": 160,
+        "tokens_in": 74,
+        "tokens_out": 58
+      },
+      "metadata": {
+        "model": "gpt-4.1-mini",
+        "environment": "production",
+        "session_id": "sess-18c9",
+        "customer_plan": "pro"
+      },
+      "status": "success",
+      "user_feedback": "neutral",
+      "production_eval_score": 0.88,
+      "errors": []
+    },
+    {
+      "trace_id": "tr-9921-x",
+      "journey_name": "Trip Pricing",
+      "agent_id": "agent-27-summary",
+      "parent_ids": ["agent-25-pricing", "agent-26-checker"],
+      "agent_name": "Agent_27_Summary",
+      "input": "Summarize total price and fare rules for the user.",
+      "output": "Total is $1,200 for 2 adults; fare is non-refundable with a change fee.",
+      "core_payload": {
+        "tool_calls": [],
+        "reasoning_blocks": [
+          {
+            "type": "analysis",
+            "content": "Merge pricing + rules into a short user-facing summary."
+          }
+        ]
+      },
+      "telemetry": {
+        "latency_ms": 390,
+        "ttft_ms": 95,
+        "tokens_in": 62,
+        "tokens_out": 74
+      },
+      "metadata": {
+        "model": "gpt-4o",
+        "environment": "staging",
+        "session_id": "sess-18c9",
+        "customer_plan": "pro"
+      },
+      "status": "success",
+      "user_feedback": "positive",
+      "production_eval_score": 0.95,
+      "errors": []
+    },
+    {
+      "trace_id": "tr-7742-q",
+      "journey_name": "Refund Request",
+      "agent_id": "agent-10-support",
+      "parent_id": "agent-9-root",
+      "agent_name": "Agent_10_Refund_Support",
+      "input": "Request a refund for booking ABC123 due to illness.",
+      "output": "Refund request submitted. Expect a response in 3-5 business days.",
+      "core_payload": {
+        "tool_calls": [
+          {
+            "function_name": "submit_refund",
+            "arguments": {
+              "booking_id": "ABC123",
+              "reason": "illness",
+              "documents": ["doctor_note.pdf"]
+            }
+          }
+        ]
+      },
+      "telemetry": {
+        "latency_ms": 980,
+        "ttft_ms": 210,
+        "tokens_in": 120,
+        "tokens_out": 96
+      },
+      "metadata": {
+        "model": "gpt-4o-mini",
+        "environment": "production",
+        "session_id": "sess-22ab",
+        "customer_plan": "free"
+      },
+      "status": "partial_success",
+      "user_feedback": "negative",
+      "production_eval_score": 0.64,
+      "errors": [
+        {
+          "code": "DOC_MISSING",
+          "message": "doctor_note.pdf could not be verified"
+        }
+      ]
+    },
+    {
+      "trace_id": "tr-7742-q",
+      "journey_name": "Refund Request",
+      "agent_id": "agent-11-escalation",
+      "parent_id": "agent-10-support",
+      "agent_name": "Agent_11_Escalation",
+      "input": "Escalate refund request for manual review.",
+      "output": "Escalated to a human agent for verification.",
+      "core_payload": {
+        "tool_calls": [
+          {
+            "function_name": "create_ticket",
+            "arguments": {
+              "priority": "high",
+              "category": "refund",
+              "booking_id": "ABC123"
+            }
+          }
+        ]
+      },
+      "telemetry": {
+        "latency_ms": 740,
+        "ttft_ms": 180,
+        "tokens_in": 80,
+        "tokens_out": 61
+      },
+      "metadata": {
+        "model": "gpt-4.1",
+        "environment": "production",
+        "session_id": "sess-22ab",
+        "customer_plan": "free"
+      },
+      "status": "success",
+      "user_feedback": "neutral",
+      "production_eval_score": 0.81,
+      "errors": []
+    }
+  ],
+  "notes": {
+    "generated_by": "sample_generator_v2",
+    "schema_version": "2.1",
+    "created_at": "2026-02-07T10:15:00Z"
+  }
+}

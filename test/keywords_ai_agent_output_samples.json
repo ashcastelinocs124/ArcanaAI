@@ -1,0 +1,1482 @@
+{
+  "description": "Keywords AI Agent Output - Sample Trace Data. One trace_id = one journey; multiple sub-agents share the same trace_id. Parent/child is multi-arch (fan-out, diamond, parallel branches). Each sample has input (from user or prior agent output) and output (this agent's completion_message).",
+  "schema_version": "1.0",
+  "journeys": [
+    {
+      "trace_id": "tr-a7f2-9b3c-4e1d-8f6a",
+      "journey_name": "Trip Booking (London \u2192 Paris)",
+      "samples": [
+        {
+          "agent_turn": 1,
+          "agent_name": "FlightSearchAgent",
+          "core_payload": {
+            "completion_message": "I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (\u00a3347 for 2 adults). Fastest: AF-1801 at 06:45 (\u00a3412). Cheapest: VY-2501 at 14:20 (\u00a3289). Which would you prefer?",
+            "tool_calls": [
+              {
+                "tool_id": "tc-8a2b-4c1d",
+                "function_name": "search_flights",
+                "arguments": {
+                  "origin": "LHR",
+                  "destination": "CDG",
+                  "date": "2025-03-15",
+                  "passengers": 2
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-1-tool-1",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-1"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.18,
+            "latency": 1.12,
+            "tokens": {
+              "prompt_tokens": 198,
+              "completion_tokens": 84
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "session_id": "sess-9x8k2m"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.5,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "result_completeness",
+                "score": 0.95
+              },
+              {
+                "name": "helpfulness",
+                "score": 0.92
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-1",
+          "parent_id": null,
+          "input": "Book a flight from London to Paris for 2 adults on March 15, 2025. I'd also like a hotel near the airport.",
+          "output": "I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (\u00a3347 for 2 adults). Fastest: AF-1801 at 06:45 (\u00a3412). Cheapest: VY-2501 at 14:20 (\u00a3289). Which would you prefer?"
+        },
+        {
+          "agent_turn": 2,
+          "agent_name": "BookingAgent",
+          "core_payload": {
+            "completion_message": "BA-218 selected. Proceeding to hold the seats. You have 15 minutes to complete payment.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-8a2b-4c1e",
+                "function_name": "book_flight",
+                "arguments": {
+                  "origin": "LHR",
+                  "destination": "CDG",
+                  "date": "2025-03-15",
+                  "flight_number": "BA-218",
+                  "passengers": 2,
+                  "class": "economy"
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-2-tool-1",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-2"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.22,
+            "latency": 1.45,
+            "tokens": {
+              "prompt_tokens": 342,
+              "completion_tokens": 52
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "session_id": "sess-9x8k2m",
+            "handoff_from": "FlightSearchAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "version": "2024-08-06"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "factuality",
+                "score": 0.95
+              },
+              {
+                "name": "action_completeness",
+                "score": 0.98
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-2",
+          "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-1",
+          "input": "[From FlightSearchAgent]: I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (\u00a3347 for 2 adults). Fastest: AF-1801 at 06:45 (\u00a3412). Cheapest: VY-2501 at 14:20 (\u00a3289). Which would you prefer?",
+          "output": "BA-218 selected. Proceeding to hold the seats. You have 15 minutes to complete payment."
+        },
+        {
+          "agent_turn": 3,
+          "agent_name": "HotelSearchAgent",
+          "core_payload": {
+            "completion_message": "Found 2 hotels near CDG: Marriott \u20ac89/night, Ibis \u20ac58/night. Shall I add one to your trip?",
+            "tool_calls": [
+              {
+                "tool_id": "tc-h1",
+                "function_name": "search_hotels",
+                "arguments": {
+                  "location": "CDG",
+                  "date": "2025-03-15"
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-3-tool-1",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-3"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.2,
+            "latency": 1.1,
+            "tokens": {
+              "prompt_tokens": 180,
+              "completion_tokens": 45
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "session_id": "sess-9x8k2m",
+            "handoff_from": "FlightSearchAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.5,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "result_completeness",
+                "score": 0.9
+              },
+              {
+                "name": "helpfulness",
+                "score": 0.88
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-3",
+          "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-1",
+          "input": "[From FlightSearchAgent]: I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (\u00a3347 for 2 adults). Fastest: AF-1801 at 06:45 (\u00a3412). Cheapest: VY-2501 at 14:20 (\u00a3289). Which would you prefer?",
+          "output": "Found 2 hotels near CDG: Marriott \u20ac89/night, Ibis \u20ac58/night. Shall I add one to your trip?"
+        },
+        {
+          "agent_turn": 4,
+          "agent_name": "PaymentAgent",
+          "core_payload": {
+            "completion_message": "Payment of \u00a3359.00 successful. Card ending 4242 charged. Receipt sent to your email.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-8a2b-4c1f",
+                "function_name": "process_payment",
+                "arguments": {
+                  "amount": 347.0,
+                  "currency": "GBP",
+                  "booking_reference": "BAA7F29B"
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-4-tool-1",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-4"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.15,
+            "latency": 0.98,
+            "tokens": {
+              "prompt_tokens": 256,
+              "completion_tokens": 38
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "session_id": "sess-9x8k2m",
+            "handoff_from": "BookingAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.0,
+            "top_p": 1.0,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "accuracy",
+                "score": 1.0
+              },
+              {
+                "name": "security_compliance",
+                "score": 1.0
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-4",
+          "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-2",
+          "input": "[From BookingAgent]: BA-218 selected. Proceeding to hold the seats. You have 15 minutes to complete payment.",
+          "output": "Payment of \u00a3359.00 successful. Card ending 4242 charged. Receipt sent to your email."
+        },
+        {
+          "agent_turn": 5,
+          "agent_name": "HotelBookingAgent",
+          "core_payload": {
+            "completion_message": "Ibis booked for March 15-16. Confirmation #HB-7291. \u20ac58 total.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-h2",
+                "function_name": "book_hotel",
+                "arguments": {
+                  "hotel": "Ibis",
+                  "date": "2025-03-15"
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-5-tool-1",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-5"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.17,
+            "latency": 0.95,
+            "tokens": {
+              "prompt_tokens": 220,
+              "completion_tokens": 38
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "session_id": "sess-9x8k2m",
+            "handoff_from": "HotelSearchAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.2,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "accuracy",
+                "score": 0.98
+              },
+              {
+                "name": "completeness",
+                "score": 0.95
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-5",
+          "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-3",
+          "input": "[From HotelSearchAgent]: Found 2 hotels near CDG: Marriott \u20ac89/night, Ibis \u20ac58/night. Shall I add one to your trip?",
+          "output": "Ibis booked for March 15-16. Confirmation #HB-7291. \u20ac58 total."
+        },
+        {
+          "agent_turn": 6,
+          "agent_name": "ConfirmationAgent",
+          "core_payload": {
+            "completion_message": "Your trip is confirmed. Flight BA-218 LHR\u2192CDG March 15. Hotel Ibis CDG March 15-16. Total: \u00a3359 + \u20ac58. E-tickets attached.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-8a2b-4c20",
+                "function_name": "send_confirmation",
+                "arguments": {
+                  "booking_reference": "BAA7F29B",
+                  "channel": "email"
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-6-tool-1",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-6"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.19,
+            "latency": 1.08,
+            "tokens": {
+              "prompt_tokens": 298,
+              "completion_tokens": 72
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "session_id": "sess-9x8k2m",
+            "handoff_from": "PaymentAgent, HotelBookingAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "top_p": 0.9,
+            "version": "2024-08-06"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "completeness",
+                "score": 0.95
+              },
+              {
+                "name": "clarity",
+                "score": 0.98
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-6",
+          "parent_id": null,
+          "parent_ids": [
+            "tr-a7f2-9b3c-4e1d-8f6a-agent-4",
+            "tr-a7f2-9b3c-4e1d-8f6a-agent-5"
+          ],
+          "input": "[From PaymentAgent]: Payment of \u00a3359.00 successful. Card ending 4242 charged. Receipt sent to your email.\n\n[From HotelBookingAgent]: Ibis booked for March 15-16. Confirmation #HB-7291. \u20ac58 total.",
+          "output": "Your trip is confirmed. Flight BA-218 LHR\u2192CDG March 15. Hotel Ibis CDG March 15-16. Total: \u00a3359 + \u20ac58. E-tickets attached."
+        },
+        {
+          "agent_turn": 7,
+          "agent_name": "SeatSelectionAgent",
+          "core_payload": {
+            "completion_message": "Seat 14A and 14B selected for BA-218 LHR\u2192CDG on March 15.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-8a2b-4c2a",
+                "function_name": "get_seat_map",
+                "arguments": {
+                  "flight": "BA-218",
+                  "date": "2025-03-15",
+                  "class": "economy"
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-7-tool-1",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-7"
+              },
+              {
+                "tool_id": "tc-8a2b-4c2b",
+                "function_name": "reserve_seats",
+                "arguments": {
+                  "flight": "BA-218",
+                  "seats": [
+                    "14A",
+                    "14B"
+                  ],
+                  "booking_ref": "BAA7F29B"
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-7-tool-2",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-7"
+              }
+            ],
+            "reasoning_blocks": [
+              "Passenger requested window + adjacent seat for 2 adults. Row 14 has both available.",
+              "Selecting 14A (window) and 14B (middle) together. Exit row 12 available but costs extra."
+            ]
+          },
+          "telemetry": {
+            "ttft": 0.11,
+            "latency": 0.74,
+            "tokens": {
+              "prompt_tokens": 185,
+              "completion_tokens": 92
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "session_id": "sess-9x8k2m",
+            "handoff_from": "BookingAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.2,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "seat_accuracy",
+                "score": 0.97
+              },
+              {
+                "name": "preference_match",
+                "score": 0.9
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-7",
+          "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-2",
+          "input": "[From BookingAgent]: BA-218 selected. Proceeding to hold the seats. You have 15 minutes to complete payment.",
+          "output": "Seat map loaded for BA-218 on March 15. Selected seats 14A (window) and 14B (adjacent) for your 2 passengers. These are standard economy seats with 31-inch pitch. Exit row 12A/12B available for an additional \u00a335/seat. Current selection confirmed and held for 15 minutes."
+        },
+        {
+          "agent_turn": 8,
+          "agent_name": "TravelInsuranceAgent",
+          "core_payload": {
+            "completion_message": "Travel insurance options retrieved for the London-Paris trip.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-8a2b-4c3a",
+                "function_name": "get_insurance_quotes",
+                "arguments": {
+                  "trip_type": "international",
+                  "origin": "UK",
+                  "destination": "France",
+                  "dates": {
+                    "start": "2025-03-15",
+                    "end": "2025-03-16"
+                  },
+                  "passengers": 2,
+                  "trip_cost": 359.0
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-8-tool-1",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-8"
+              }
+            ],
+            "reasoning_blocks": [
+              "Short international trip within Europe. EHIC/GHIC covers basic medical.",
+              "Recommending cancellation coverage given non-refundable fare."
+            ]
+          },
+          "telemetry": {
+            "ttft": 0.14,
+            "latency": 0.62,
+            "tokens": {
+              "prompt_tokens": 210,
+              "completion_tokens": 125
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "session_id": "sess-9x8k2m",
+            "handoff_from": "PaymentAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "result_completeness",
+                "score": 0.93
+              },
+              {
+                "name": "helpfulness",
+                "score": 0.88
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-8",
+          "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-4",
+          "input": "[From PaymentAgent]: Payment of \u00a3359.00 successful. Card ending 4242 charged. Receipt sent to your email.",
+          "output": "Travel insurance options for your London\u2192Paris trip (March 15-16, 2 passengers): 1. Basic Cover (\u00a312/person): Trip cancellation up to \u00a3500, baggage loss \u00a3200. 2. Standard Cover (\u00a324/person): Cancellation \u00a31,000, medical \u00a350,000, baggage \u00a3500, flight delay \u00a3100. 3. Premium Cover (\u00a338/person): Cancellation \u00a32,500, medical \u00a3100,000, adventure sports, 24/7 assistance. Recommendation: Standard Cover at \u00a348 total \u2014 good value given your non-refundable BA fare. Would you like to add insurance?"
+        },
+        {
+          "agent_turn": 9,
+          "agent_name": "ItineraryAgent",
+          "core_payload": {
+            "completion_message": "Full trip itinerary compiled from all booking components.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-8a2b-4c4a",
+                "function_name": "compile_itinerary",
+                "arguments": {
+                  "booking_ref": "BAA7F29B",
+                  "hotel_ref": "HB-7291",
+                  "include_maps": true,
+                  "include_weather": true
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-9-tool-1",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-9"
+              }
+            ],
+            "reasoning_blocks": [
+              "Merging flight, hotel, seat, and insurance data into a single itinerary.",
+              "Adding local info: CDG terminal map, Paris weather forecast, transport options."
+            ]
+          },
+          "telemetry": {
+            "ttft": 0.22,
+            "latency": 1.45,
+            "tokens": {
+              "prompt_tokens": 380,
+              "completion_tokens": 210
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "session_id": "sess-9x8k2m",
+            "handoff_from": "ConfirmationAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.4,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "result_completeness",
+                "score": 0.98
+              },
+              {
+                "name": "helpfulness",
+                "score": 0.96
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-9",
+          "parent_ids": [
+            "tr-a7f2-9b3c-4e1d-8f6a-agent-6",
+            "tr-a7f2-9b3c-4e1d-8f6a-agent-7",
+            "tr-a7f2-9b3c-4e1d-8f6a-agent-8"
+          ],
+          "input": "[From ConfirmationAgent]: Your trip is confirmed. Flight BA-218 LHR\u2192CDG March 15. Hotel Ibis CDG March 15-16. [From SeatSelectionAgent]: Seats 14A and 14B confirmed. [From TravelInsuranceAgent]: Insurance options provided.",
+          "output": "Your complete London\u2192Paris itinerary for March 15-16, 2025:\n\n07:30 \u2014 Depart London Heathrow (LHR) Terminal 5\n         BA-218 | Seats 14A & 14B (window + adjacent)\n09:30 \u2014 Arrive Paris CDG Terminal 2A\n         Immigration: ~20 min (EU/UK lane)\n10:15 \u2014 RER B train to hotel (35 min, \u20ac11.80)\n10:50 \u2014 Check in: Ibis CDG, Conf #HB-7291 (\u20ac58/night)\n         Check-out: March 16 by 11:00\n\nWeather: Paris March 15 \u2014 12\u00b0C, partly cloudy, 15% rain chance\nInsurance: Not yet added (Standard Cover recommended at \u00a348)\n\nDocuments needed: Valid passport, booking ref BAA7F29B, hotel confirmation."
+        },
+        {
+          "agent_turn": 10,
+          "agent_name": "NotificationAgent",
+          "core_payload": {
+            "completion_message": "Trip notifications configured and initial confirmation sent.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-8a2b-4c5a",
+                "function_name": "send_notification",
+                "arguments": {
+                  "channels": [
+                    "email",
+                    "sms",
+                    "push"
+                  ],
+                  "content_type": "itinerary",
+                  "booking_ref": "BAA7F29B"
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-10-tool-1",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-10"
+              },
+              {
+                "tool_id": "tc-8a2b-4c5b",
+                "function_name": "schedule_reminders",
+                "arguments": {
+                  "booking_ref": "BAA7F29B",
+                  "reminders": [
+                    {
+                      "type": "check_in",
+                      "hours_before": 24
+                    },
+                    {
+                      "type": "departure",
+                      "hours_before": 3
+                    }
+                  ]
+                },
+                "tool_call_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-10-tool-2",
+                "parent_agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-10"
+              }
+            ],
+            "reasoning_blocks": [
+              "Sending full itinerary via all channels. Scheduling BA online check-in reminder for March 14."
+            ]
+          },
+          "telemetry": {
+            "ttft": 0.08,
+            "latency": 0.38,
+            "tokens": {
+              "prompt_tokens": 195,
+              "completion_tokens": 78
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "session_id": "sess-9x8k2m",
+            "handoff_from": "ItineraryAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.1,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "delivery_success",
+                "score": 1.0
+              },
+              {
+                "name": "timing_accuracy",
+                "score": 0.95
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-10",
+          "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-9",
+          "input": "[From ItineraryAgent]: Complete itinerary compiled for London\u2192Paris March 15-16. Flight BA-218 seats 14A/14B, Ibis CDG hotel, weather forecast included.",
+          "output": "All notifications sent:\n\u2022 Email: Full itinerary PDF sent to registered email\n\u2022 SMS: Flight summary + booking ref sent to +44****7291\n\u2022 Push: Trip card added to your app\n\nReminders scheduled:\n\u2022 March 14, 7:30 AM: BA online check-in opens (24h before departure)\n\u2022 March 15, 4:30 AM: Departure reminder with live terminal info\n\nYou're all set for your London\u2192Paris trip!"
+        }
+      ],
+      "initial_user_request": "Book a flight from London to Tokyo for 2 adults on March 15, 2025. I'd also like a hotel near the airport."
+    },
+    {
+      "trace_id": "tr-b8e3-0c4d-5f2e-9a7b",
+      "journey_name": "Refund Request",
+      "samples": [
+        {
+          "agent_turn": 1,
+          "agent_name": "RAGAgent",
+          "core_payload": {
+            "completion_message": "According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days\u2014you qualify for a full refund.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-1d5e-7f4a",
+                "function_name": "vector_search",
+                "arguments": {
+                  "query": "refund policy 30 days",
+                  "index": "company_policies",
+                  "top_k": 5
+                },
+                "tool_call_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-1-tool-1",
+                "parent_agent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-1"
+              }
+            ],
+            "reasoning_blocks": [
+              "User is asking about refund eligibility. Need to retrieve refund policy.",
+              "Vector search returned Section 4.3 with clear timelines.",
+              "User's purchase was 22 days ago - within 30-day window for full refund."
+            ]
+          },
+          "telemetry": {
+            "ttft": 0.28,
+            "latency": 1.87,
+            "tokens": {
+              "prompt_tokens": 892,
+              "completion_tokens": 124
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "document_source": "policy_v2.3"
+          },
+          "model_parameters": {
+            "model": "claude-3-sonnet-20240229",
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "version": "2024-02-29"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "policy_compliance",
+                "score": 1.0
+              },
+              {
+                "name": "citation_accuracy",
+                "score": 0.96
+              },
+              {
+                "name": "relevance",
+                "score": 0.98
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-1",
+          "parent_id": null,
+          "input": "I want to request a refund. I bought something 22 days ago.",
+          "output": "According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days\u2014you qualify for a full refund."
+        },
+        {
+          "agent_turn": 2,
+          "agent_name": "CoordinatorAgent",
+          "core_payload": {
+            "completion_message": "I've forwarded your request to the Payment team. They'll process the refund within 2-3 business days. You'll receive an email confirmation. Anything else I can help with?",
+            "tool_calls": [
+              {
+                "tool_id": "tc-2e6f-8a5b",
+                "function_name": "create_ticket",
+                "arguments": {
+                  "team": "payments",
+                  "priority": "normal",
+                  "type": "refund"
+                },
+                "tool_call_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-2-tool-1",
+                "parent_agent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-2"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.19,
+            "latency": 1.23,
+            "tokens": {
+              "prompt_tokens": 512,
+              "completion_tokens": 54
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "handoff_from": "RAGAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.4,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "action_completeness",
+                "score": 0.9
+              },
+              {
+                "name": "politeness",
+                "score": 0.98
+              },
+              {
+                "name": "clarity",
+                "score": 0.95
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-2",
+          "parent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-1",
+          "input": "[From RAGAgent]: According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days\u2014you qualify for a full refund.",
+          "output": "I've forwarded your request to the Payment team. They'll process the refund within 2-3 business days. You'll receive an email confirmation. Anything else I can help with?"
+        },
+        {
+          "agent_turn": 3,
+          "agent_name": "AuditAgent",
+          "core_payload": {
+            "completion_message": "Refund request logged. Case #REF-8842. Compliance check passed.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-a1",
+                "function_name": "log_refund",
+                "arguments": {
+                  "type": "refund"
+                },
+                "tool_call_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-3-tool-1",
+                "parent_agent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-3"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.14,
+            "latency": 0.72,
+            "tokens": {
+              "prompt_tokens": 120,
+              "completion_tokens": 28
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "handoff_from": "RAGAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.0,
+            "top_p": 1.0,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "compliance",
+                "score": 1.0
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-3",
+          "parent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-1",
+          "input": "[From RAGAgent]: According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days\u2014you qualify for a full refund.",
+          "output": "Refund request logged. Case #REF-8842. Compliance check passed."
+        }
+      ],
+      "initial_user_request": "I want to request a refund. I bought something 75 days ago."
+    },
+    {
+      "trace_id": "tr-c9f4-1d5e-6a3f-0b8c",
+      "journey_name": "Quote Generation (Product + Warranty)",
+      "samples": [
+        {
+          "agent_turn": 1,
+          "agent_name": "PricingAgent",
+          "core_payload": {
+            "completion_message": "Here's the breakdown for your selection: Base price $3,200, 8.5% tax, $75 processing fee, extended warranty $740.50. Shall I run the total?",
+            "tool_calls": [
+              {
+                "tool_id": "tc-0c4d-6e3e",
+                "function_name": "get_pricing",
+                "arguments": {
+                  "product_id": "PRD-8842",
+                  "options": [
+                    "extended_warranty"
+                  ]
+                },
+                "tool_call_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-1-tool-1",
+                "parent_agent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-1"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.21,
+            "latency": 0.89,
+            "tokens": {
+              "prompt_tokens": 156,
+              "completion_tokens": 58
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "flow": "quote_generation"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.2,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "accuracy",
+                "score": 0.98
+              },
+              {
+                "name": "clarity",
+                "score": 0.92
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-1",
+          "parent_id": null,
+          "input": "I need a quote for product PRD-8842 with the extended warranty option.",
+          "output": "Here's the breakdown for your selection: Base price $3,200, 8.5% tax, $75 processing fee, extended warranty $740.50. Shall I run the total?"
+        },
+        {
+          "agent_turn": 2,
+          "agent_name": "TaxCalculatorAgent",
+          "core_payload": {
+            "completion_message": "Tax (8.5%): $280. Base $3,200 \u00d7 0.085.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-t1",
+                "function_name": "calculate",
+                "arguments": {
+                  "expression": "3200 * 0.09"
+                },
+                "tool_call_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-2-tool-1",
+                "parent_agent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-2"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.08,
+            "latency": 0.45,
+            "tokens": {
+              "prompt_tokens": 145,
+              "completion_tokens": 22
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "flow": "quote_generation",
+            "handoff_from": "PricingAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.0,
+            "top_p": 1.0,
+            "version": "2024-08-06"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "accuracy",
+                "score": 1.0
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-2",
+          "parent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-1",
+          "input": "[From PricingAgent]: Here's the breakdown for your selection: Base price $3,200, 8.5% tax, $75 processing fee, extended warranty $740.50. Shall I run the total?",
+          "output": "Tax (8.5%): $280. Base $3,200 \u00d7 0.085."
+        },
+        {
+          "agent_turn": 3,
+          "agent_name": "WarrantyCalculatorAgent",
+          "core_payload": {
+            "completion_message": "Extended warranty: $740.50. Covers 3 years.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-w1",
+                "function_name": "get_warranty_price",
+                "arguments": {
+                  "product_id": "PRD-8842"
+                },
+                "tool_call_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-3-tool-1",
+                "parent_agent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-3"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.11,
+            "latency": 0.62,
+            "tokens": {
+              "prompt_tokens": 130,
+              "completion_tokens": 18
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "flow": "quote_generation",
+            "handoff_from": "PricingAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.0,
+            "top_p": 1.0,
+            "version": "2024-08-06"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "accuracy",
+                "score": 0.99
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-3",
+          "parent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-1",
+          "input": "[From PricingAgent]: Here's the breakdown for your selection: Base price $3,200, 8.5% tax, $75 processing fee, extended warranty $740.50. Shall I run the total?",
+          "output": "Extended warranty: $740.50. Covers 3 years."
+        },
+        {
+          "agent_turn": 4,
+          "agent_name": "QuoteAggregatorAgent",
+          "core_payload": {
+            "completion_message": "The total comes to $4,295.50. That's $3,200 base + 8.5% tax ($280) + $75 processing fee + $740.50 for the extended warranty.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-0c4d-6e3f",
+                "function_name": "calculate",
+                "arguments": {
+                  "expression": "3200 * 1.09 + 75 + 740.50"
+                },
+                "tool_call_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-4-tool-1",
+                "parent_agent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-4"
+              }
+            ],
+            "reasoning_blocks": [
+              "Combining TaxCalculator and WarrantyCalculator outputs.",
+              "Running calculator to verify total."
+            ]
+          },
+          "telemetry": {
+            "ttft": 0.12,
+            "latency": 1.02,
+            "tokens": {
+              "prompt_tokens": 289,
+              "completion_tokens": 67
+            }
+          },
+          "metadata": {
+            "customer_plan": "gold",
+            "environment": "production",
+            "flow": "quote_generation",
+            "handoff_from": "TaxCalculatorAgent, WarrantyCalculatorAgent"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.0,
+            "top_p": 1.0,
+            "version": "2024-08-06"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "accuracy",
+                "score": 1.0
+              },
+              {
+                "name": "factuality",
+                "score": 1.0
+              },
+              {
+                "name": "explanation_quality",
+                "score": 0.94
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-4",
+          "parent_id": null,
+          "parent_ids": [
+            "tr-c9f4-1d5e-6a3f-0b8c-agent-2",
+            "tr-c9f4-1d5e-6a3f-0b8c-agent-3"
+          ],
+          "input": "[From TaxCalculatorAgent]: Tax (8.5%): $280. Base $3,200 \u00d7 0.085.\n\n[From WarrantyCalculatorAgent]: Extended warranty: $740.50. Covers 3 years.",
+          "output": "The total comes to $4,295.50. That's $3,200 base + 8.5% tax ($280) + $75 processing fee + $740.50 for the extended warranty."
+        }
+      ],
+      "initial_user_request": "I need a quote for product PRD-9921 without any warranty options."
+    },
+    {
+      "trace_id": "tr-d0a5-2e6f-7b4a-1c9d",
+      "journey_name": "Financial Research (Q4 Earnings)",
+      "samples": [
+        {
+          "agent_turn": 1,
+          "agent_name": "ResearchAgent",
+          "core_payload": {
+            "completion_message": "Based on the search results, the Q4 2024 revenue was $12.8B, up 22% YoY. Operating margin expanded to 42%. Key drivers: Cloud growth (+24%) and Ads recovery (+12%).",
+            "tool_calls": [
+              {
+                "tool_id": "tc-9b3c-5d2e",
+                "function_name": "database_search",
+                "arguments": {
+                  "query": "Q4 2024 earnings report",
+                  "collection": "financial_reports",
+                  "limit": 5
+                },
+                "tool_call_id": "tr-d0a5-2e6f-7b4a-1c9d-agent-1-tool-1",
+                "parent_agent_id": "tr-d0a5-2e6f-7b4a-1c9d-agent-1"
+              }
+            ],
+            "reasoning_blocks": [
+              "The user asked for Q4 financial summary. I need to search the financial reports database.",
+              "Found 3 relevant documents. Cross-referencing key figures for accuracy.",
+              "Delivering condensed summary with top-level metrics."
+            ]
+          },
+          "telemetry": {
+            "ttft": 0.18,
+            "latency": 2.31,
+            "tokens": {
+              "prompt_tokens": 1250,
+              "completion_tokens": 156
+            }
+          },
+          "metadata": {
+            "customer_plan": "enterprise",
+            "environment": "production",
+            "user_role": "analyst"
+          },
+          "model_parameters": {
+            "model": "claude-3-opus-20240229",
+            "temperature": 0.2,
+            "top_p": 0.95,
+            "version": "2024-02-29"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "factuality",
+                "score": 0.91
+              },
+              {
+                "name": "hallucination_detected",
+                "score": 0.0
+              },
+              {
+                "name": "source_grounding",
+                "score": 0.88
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-d0a5-2e6f-7b4a-1c9d-agent-1",
+          "parent_id": null,
+          "input": "What was the Q4 2024 revenue and key metrics?",
+          "output": "Based on the search results, the Q4 2024 revenue was $12.8B, up 22% YoY. Operating margin expanded to 42%. Key drivers: Cloud growth (+24%) and Ads recovery (+12%)."
+        }
+      ],
+      "initial_user_request": "What was the Q1 2025 revenue and key metrics?"
+    },
+    {
+      "trace_id": "tr-e1b6-3f7a-8c5b-2d0e",
+      "journey_name": "Support Inquiry (Order Lookup)",
+      "samples": [
+        {
+          "agent_turn": 1,
+          "agent_name": "SupportAgent",
+          "core_payload": {
+            "completion_message": "I'd be happy to help you with your order! Could you please provide your order number or the email address associated with your account?",
+            "tool_calls": [],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.31,
+            "latency": 0.89,
+            "tokens": {
+              "prompt_tokens": 156,
+              "completion_tokens": 42
+            }
+          },
+          "metadata": {
+            "customer_plan": "free",
+            "environment": "staging",
+            "intent": "order_inquiry"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.5,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "politeness",
+                "score": 1.0
+              },
+              {
+                "name": "helpfulness",
+                "score": 0.85
+              },
+              {
+                "name": "conciseness",
+                "score": 0.92
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-e1b6-3f7a-8c5b-2d0e-agent-1",
+          "parent_id": null,
+          "input": "I need help with my order.",
+          "output": "I'd be happy to help you with your order! Could you please provide your order number or the email address associated with your account?"
+        }
+      ],
+      "initial_user_request": "I need help with my delivery address change."
+    },
+    {
+      "trace_id": "tr-f2c7-4a8b-9d6c-3e1f",
+      "journey_name": "PII Guardrail Blocked",
+      "samples": [
+        {
+          "agent_turn": 1,
+          "agent_name": "ContentAgent",
+          "core_payload": {
+            "completion_message": null,
+            "tool_calls": [],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.05,
+            "latency": 0.12,
+            "tokens": {
+              "prompt_tokens": 445,
+              "completion_tokens": 0
+            }
+          },
+          "metadata": {
+            "customer_plan": "silver",
+            "environment": "production"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "version": "2024-08-06"
+          },
+          "evaluation_signals": {
+            "eval_scores": [],
+            "guardrail_status": "fail",
+            "guardrail_reason": "PII_DETECTED: Response contained unredacted SSN (***-**-**** pattern). Output blocked before delivery."
+          },
+          "agent_id": "tr-f2c7-4a8b-9d6c-3e1f-agent-1",
+          "parent_id": null,
+          "input": "Generate a customer summary for John Smith, SSN 555-12-3456.",
+          "output": null
+        }
+      ],
+      "initial_user_request": "Generate a customer summary for John Smith, SSN 555-12-3456."
+    },
+    {
+      "trace_id": "tr-g3d8-5b9c-0e7d-4f2a",
+      "journey_name": "Strategic Planning (O1 Reasoning)",
+      "samples": [
+        {
+          "agent_turn": 1,
+          "agent_name": "O1ReasoningAgent",
+          "core_payload": {
+            "completion_message": "The optimal strategy is Option B: defer the implementation by 6 months. Here's why: (1) The 12% interest rate makes borrowing costly\u2014$18K in interest over 2 years. (2) Your runway extends to 14 months with Option B. (3) The competitor feature is differentiation, not table-stakes\u2014you have 8-10 months before it becomes critical.",
+            "tool_calls": [],
+            "reasoning_blocks": [
+              "Analyzing the ROI of each option. Option A: immediate build costs $150K + $18K interest = $168K. Option B: wait 6 months, use internal resources, $0 extra cost.",
+              "Cash flow: Current burn $50K/mo. Option A leaves 8 months runway. Option B preserves runway.",
+              "Strategic: The competitor's feature is new. Early adopters might switch, but the core market won't care for 6-9 months. Delaying is acceptable risk.",
+              "Recommendation: Option B. Revisit in Q3 when we have more data on competitor adoption."
+            ]
+          },
+          "telemetry": {
+            "ttft": 0.82,
+            "latency": 4.56,
+            "tokens": {
+              "prompt_tokens": 1850,
+              "completion_tokens": 312
+            }
+          },
+          "metadata": {
+            "customer_plan": "enterprise",
+            "environment": "production",
+            "use_case": "strategic_planning"
+          },
+          "model_parameters": {
+            "model": "o1-preview",
+            "temperature": 0.0,
+            "top_p": 1.0,
+            "version": "2024-09-01"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "reasoning_depth",
+                "score": 0.94
+              },
+              {
+                "name": "factuality",
+                "score": 0.88
+              },
+              {
+                "name": "actionability",
+                "score": 0.91
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-g3d8-5b9c-0e7d-4f2a-agent-1",
+          "parent_id": null,
+          "input": "We have $150K to build a competitor feature. Option A: borrow now and build. Option B: wait 6 months. Which is better?",
+          "output": "The optimal strategy is Option B: defer the implementation by 6 months. Here's why: (1) The 12% interest rate makes borrowing costly\u2014$18K in interest over 2 years. (2) Your runway extends to 14 months with Option B. (3) The competitor feature is differentiation, not table-stakes\u2014you have 8-10 months before it becomes critical."
+        }
+      ],
+      "initial_user_request": "We have $150K to build a competitor feature. Option A: borrow now and build. Option B: wait 6 months. Which is better?"
+    },
+    {
+      "trace_id": "tr-h4e9-6c0d-1f8e-5a3b",
+      "journey_name": "Code Fix (Async Bug)",
+      "samples": [
+        {
+          "agent_turn": 1,
+          "agent_name": "CodeAgent",
+          "core_payload": {
+            "completion_message": "Here's the fix. The issue was a missing await on the async fetch. Replace line 24 with: `const data = await fetchUserData(userId);`",
+            "tool_calls": [
+              {
+                "tool_id": "tc-3f7a-9b6c",
+                "function_name": "read_file",
+                "arguments": {
+                  "path": "src/api/userService.ts"
+                },
+                "tool_call_id": "tr-h4e9-6c0d-1f8e-5a3b-agent-1-tool-1",
+                "parent_agent_id": "tr-h4e9-6c0d-1f8e-5a3b-agent-1"
+              },
+              {
+                "tool_id": "tc-4a8b-0c7d",
+                "function_name": "apply_patch",
+                "arguments": {
+                  "file": "userService.ts",
+                  "patch": "..."
+                },
+                "tool_call_id": "tr-h4e9-6c0d-1f8e-5a3b-agent-1-tool-2",
+                "parent_agent_id": "tr-h4e9-6c0d-1f8e-5a3b-agent-1"
+              }
+            ],
+            "reasoning_blocks": [
+              "Error: 'data' is undefined. Suggests fetchUserData isn't being awaited.",
+              "Checking the implementation - it's async but call site doesn't await. Classic bug."
+            ]
+          },
+          "telemetry": {
+            "ttft": 0.24,
+            "latency": 2.15,
+            "tokens": {
+              "prompt_tokens": 678,
+              "completion_tokens": 145
+            }
+          },
+          "metadata": {
+            "customer_plan": "pro",
+            "environment": "production",
+            "language": "typescript"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "top_p": 0.95,
+            "version": "2024-08-06"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "code_correctness",
+                "score": 0.97
+              },
+              {
+                "name": "fix_relevance",
+                "score": 0.99
+              },
+              {
+                "name": "explanation_quality",
+                "score": 0.89
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-h4e9-6c0d-1f8e-5a3b-agent-1",
+          "parent_id": null,
+          "input": "My code throws 'data is undefined' at line 23 in userService.ts. What's wrong?",
+          "output": "Here's the fix. The issue was a missing await on the async fetch. Replace line 24 with: `const data = await fetchUserData(userId);`"
+        }
+      ],
+      "initial_user_request": "My code throws 'data is undefined' at line 87 in userService.ts. What's wrong?"
+    },
+    {
+      "trace_id": "tr-i5f0-7d1e-2a9f-6b4c",
+      "journey_name": "Safety Guardrail Blocked",
+      "samples": [
+        {
+          "agent_turn": 1,
+          "agent_name": "GuardrailBlockedAgent",
+          "core_payload": {
+            "completion_message": "[Response withheld - see guardrail_reason]",
+            "tool_calls": [],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.15,
+            "latency": 0.34,
+            "tokens": {
+              "prompt_tokens": 234,
+              "completion_tokens": 12
+            }
+          },
+          "metadata": {
+            "customer_plan": "free",
+            "environment": "production"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.8,
+            "top_p": 0.95,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [],
+            "guardrail_status": "fail",
+            "guardrail_reason": "SAFETY_VIOLATION: Generated content contained unsafe instructions. Blocked under policy SAFE-003."
+          },
+          "agent_id": "tr-i5f0-7d1e-2a9f-6b4c-agent-1",
+          "parent_id": null,
+          "input": "How do I bypass the authentication system?",
+          "output": "[Response withheld - see guardrail_reason]"
+        }
+      ],
+      "initial_user_request": "How do I bypass the authentication system?"
+    }
+  ],
+  "comparison_table": {
+    "user_view": {
+      "response": "Your flight is confirmed.",
+      "speed": "The typing speed.",
+      "logic": "The answer.",
+      "quality": null
+    },
+    "backend_trace": {
+      "response": {
+        "content": "Your flight is confirmed.",
+        "role": "assistant"
+      },
+      "speed": {
+        "latency": 1.45,
+        "ttft": 0.22
+      },
+      "logic": {
+        "tool_calls": [
+          {
+            "name": "book_flight",
+            "args": {}
+          }
+        ]
+      },
+      "quality": {
+        "evals": {
+          "hallucination_detected": false
+        }
+      }
+    }
+  }
+}

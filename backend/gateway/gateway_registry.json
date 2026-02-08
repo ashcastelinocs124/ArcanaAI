@@ -1,0 +1,58 @@
+{
+  "models": [
+    {
+      "provider": "openai",
+      "model_id": "gpt-5",
+      "task_types": ["summarization", "analysis", "generation", "coding", "reasoning", "planning"],
+      "cost_per_1k_tokens": 0.01,
+      "latency_ms": 2000,
+      "quality_score": 0.98,
+      "capabilities": ["reasoning", "multimodal", "orchestration"]
+    },
+    {
+      "provider": "openai",
+      "model_id": "gpt-4o",
+      "task_types": ["summarization", "analysis", "generation", "coding"],
+      "cost_per_1k_tokens": 0.005,
+      "latency_ms": 1200,
+      "quality_score": 0.95,
+      "capabilities": ["reasoning", "multimodal"]
+    },
+    {
+      "provider": "openai",
+      "model_id": "gpt-4o-mini",
+      "task_types": ["summarization", "analysis", "generation", "coding"],
+      "cost_per_1k_tokens": 0.0015,
+      "latency_ms": 700,
+      "quality_score": 0.82,
+      "capabilities": ["fast", "low_cost"]
+    },
+    {
+      "provider": "openai",
+      "model_id": "gpt-4.1",
+      "task_types": ["analysis", "generation", "coding"],
+      "cost_per_1k_tokens": 0.006,
+      "latency_ms": 1500,
+      "quality_score": 0.96,
+      "capabilities": ["reasoning"]
+    },
+    {
+      "provider": "openai",
+      "model_id": "gpt-4.1-mini",
+      "task_types": ["analysis", "generation", "coding", "summarization"],
+      "cost_per_1k_tokens": 0.002,
+      "latency_ms": 800,
+      "quality_score": 0.86,
+      "capabilities": ["balanced"]
+    },
+    {
+      "provider": "openai",
+      "model_id": "o1-mini",
+      "task_types": ["analysis", "reasoning", "planning"],
+      "cost_per_1k_tokens": 0.003,
+      "latency_ms": 1800,
+      "quality_score": 0.9,
+      "capabilities": ["deep_reasoning"]
+    }
+  ]
+}

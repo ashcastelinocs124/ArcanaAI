@@ -1,0 +1,6 @@
+.env
+.env.*
+.claude/
+context/
+__pycache__/
+*.pyc
