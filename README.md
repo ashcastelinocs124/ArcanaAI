@@ -43,6 +43,8 @@ The dashboard provides an at-a-glance view of system health, including total tra
 - Requires backend API with OpenAI API key
 
 ### 5. **DAG Viewer**
+<img width="1146" height="428" alt="Screenshot 2026-02-09 at 9 58 27 AM" src="https://github.com/user-attachments/assets/3231d878-523d-404f-86de-39b30095e667" />
+
 - Interactive execution graphs for each trace
 - Supports multiple agent patterns:
   - Linear chains (A→B→C)
