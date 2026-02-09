@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arcana — LLM Observability</title>
+<title>ArcanaAI — LLM Observability</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -113,6 +113,11 @@ tbody tr:hover{background:var(--copper-glow)}
 .badge-fail{background:var(--red-dim);color:var(--red)}
 .badge-model{background:var(--blue-dim);color:var(--blue);font-weight:500}
 .badge-plan{background:var(--copper-dim);color:var(--copper);font-weight:500}
+.tier-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:.68rem;font-weight:600;letter-spacing:.03em}
+.tier-badge.t1{background:rgba(74,222,128,.1);color:#4ade80}
+.tier-badge.t2{background:rgba(96,165,250,.1);color:#60a5fa}
+.tier-badge.t3{background:rgba(167,139,250,.1);color:#a78bfa}
+.tier-badge.t3-fail{background:rgba(248,113,113,.1);color:#f87171}
 .trace-id{font-family:'DM Sans',monospace;font-size:.75rem;color:var(--text-dim)}
 .dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:4px}
 .dot-pass{background:var(--green)}
@@ -201,7 +206,7 @@ tbody tr:hover{background:var(--copper-glow)}
 /* Guardrail reason */
 .guardrail-reason{background:var(--red-dim);border:1px solid rgba(248,113,113,.2);border-radius:var(--radius);padding:12px 16px;font-size:.85rem;color:var(--red);margin-top:10px;line-height:1.5}
 
-/* Pipeline edge analysis */
+/* Goal verification table */
 .edge-table{width:100%;border-collapse:collapse}
 .edge-table th{text-align:left;padding:10px 16px;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);font-weight:600;border-bottom:1px solid var(--border)}
 .edge-table td{padding:12px 16px;font-size:.88rem;border-bottom:1px solid var(--border)}
@@ -251,7 +256,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <h1>Arcana</h1>
+      <h1>ArcanaAI</h1>
       <span>LLM Observability</span>
     </div>
     <div class="sidebar-section">
@@ -280,7 +285,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
       <div class="sidebar-section-label">Analysis</div>
       <div class="sidebar-item" data-page="pipeline">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.5 2A2.5 2.5 0 0112 4.5V6h6a2 2 0 012 2v2M14 22a2.5 2.5 0 01-2-4.5V16H6a2 2 0 01-2-2v-2"/><circle cx="9.5" cy="4.5" r="2.5"/><circle cx="14.5" cy="19.5" r="2.5"/><circle cx="22" cy="10" r="2"/><circle cx="2" cy="14" r="2"/></svg>
-        Semantic Pipeline
+        Goal Monitor
       </div>
       <div class="sidebar-item" data-page="optimizer">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -317,7 +322,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
       </label>
     </div>
     <div class="sidebar-footer">
-      Arcana v0.1.0
+      ArcanaAI v0.1.0
     </div>
   </aside>
 
@@ -325,7 +330,7 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
   <div class="main">
     <div class="header">
       <div class="breadcrumb" id="breadcrumb">
-        <span>Arcana</span> <span>/</span> <span class="current" id="breadcrumb-current">Overview</span>
+        <span>ArcanaAI</span> <span>/</span> <span class="current" id="breadcrumb-current">Overview</span>
       </div>
       <div class="header-actions">
         <button class="btn btn-ghost" onclick="location.reload()">Refresh</button>
@@ -378,7 +383,8 @@ let pipelineState = {
   loading: false,
   results: null,
   error: null,
-  userGoal: null
+  userGoal: null,
+  evaluationMode: 'cascade'
 };
 
 function loadData(data) {
@@ -653,7 +659,7 @@ function navigateTo(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const pageEl = document.getElementById('page-' + page);
   if (pageEl) { pageEl.classList.add('active'); }
-  const names = { overview:'Overview', traces:'Traces', metrics:'Metrics', logs:'Logs', pipeline:'Semantic Pipeline', optimizer:'Prompt Optimizer', dagviewer:'DAG Viewer', evaluations:'Evaluations', promptlib:'Prompt Library', settings:'Settings', tracedetail:'Trace Detail' };
+  const names = { overview:'Overview', traces:'Traces', metrics:'Metrics', logs:'Logs', pipeline:'Goal Monitor', optimizer:'Prompt Optimizer', dagviewer:'DAG Viewer', evaluations:'Evaluations', promptlib:'Prompt Library', settings:'Settings', tracedetail:'Trace Detail' };
   document.getElementById('breadcrumb-current').textContent = names[page] || page;
   renderPage(page);
 }
@@ -687,7 +693,7 @@ function renderPage(page) {
 // ===== OVERVIEW (DASHBOARD) =====
 function renderOverview() {
   if (!dataLoaded) {
-    return renderEmptyState('page-overview', 'Welcome to Arcana', 'Upload your agent execution logs to start analyzing multi-agent systems. Arcana will reconstruct DAGs, detect communication issues, and monitor task progress.');
+    return renderEmptyState('page-overview', 'Welcome to ArcanaAI', 'Upload your agent execution logs to start analyzing multi-agent systems. ArcanaAI will reconstruct DAGs, detect communication issues, and monitor task progress.');
   }
   const allAgents = getAllAgents();
   const totalTraces = journeys.length;
@@ -702,10 +708,8 @@ function renderOverview() {
   allAgents.forEach(a => { const m = a.model_parameters?.model||'unknown'; modelCounts[m]=(modelCounts[m]||0)+1; });
   const modelEntries = Object.entries(modelCounts).sort((a,b) => b[1]-a[1]);
 
-  // Pipeline health
+  // Goal verification status
   const multiAgent = journeys.filter(j => j.samples.length > 1);
-  let totalEdges = 0, totalRed = 0;
-  multiAgent.forEach(j => { const a = analyzeEdges(j); totalEdges += a.results.length; totalRed += a.results.filter(r=>r.status==='red').length; });
 
   // Latency sparkline data
   const latencies = allAgents.map(a => a.telemetry?.latency || 0);
@@ -721,7 +725,7 @@ function renderOverview() {
         <div style="font-size:.8rem;color:var(--text-dim);margin-top:4px">${totalTraces} traces &middot; ${totalAgents} agents &middot; ${Object.keys(modelCounts).length} models</div>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost" onclick="navigateTo('pipeline')">Pipeline Analysis</button>
+        <button class="btn btn-ghost" onclick="navigateTo('pipeline')">Goal Monitor</button>
         <button class="btn btn-primary" onclick="navigateTo('traces')">View All Traces</button>
       </div>
     </div>
@@ -730,7 +734,7 @@ function renderOverview() {
       <div class="stat-card copper"><div class="stat-label">Traces</div><div class="stat-value">${totalTraces}</div><div class="stat-sub">${multiAgent.length} multi-agent</div></div>
       <div class="stat-card blue"><div class="stat-label">Agents Executed</div><div class="stat-value">${totalAgents}</div><div class="stat-sub">${totalTokens.toLocaleString()} tokens</div></div>
       <div class="stat-card green"><div class="stat-label">Pass Rate</div><div class="stat-value">${passRate}%</div><div class="stat-sub">${passCount}/${totalTraces} traces</div></div>
-      <div class="stat-card red"><div class="stat-label">Edge Issues</div><div class="stat-value">${totalRed}</div><div class="stat-sub">of ${totalEdges} edges analyzed</div></div>
+      <div class="stat-card copper"><div class="stat-label">Goal Checks</div><div class="stat-value">${(() => { let n = 0; multiAgent.forEach(j => { var tr = getTraceCheckpoints(j.trace_id); if (tr) n += (tr.checkpoints || []).length; }); return n || '--'; })()}</div><div class="stat-sub">${multiAgent.length} traces monitored</div></div>
     </div>
 
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
@@ -775,20 +779,21 @@ function renderOverview() {
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-      <!-- Pipeline health -->
+      <!-- Goal Verification Status -->
       <div class="metric-card">
-        <div class="metric-card-title" style="margin-bottom:10px">Pipeline Health</div>
+        <div class="metric-card-title" style="margin-bottom:10px">Goal Verification</div>
         ${multiAgent.map(j => {
-          const a = analyzeEdges(j);
-          const redCount = a.results.filter(r=>r.status==='red').length;
-          const edgeCount = a.results.length;
-          const healthPct = edgeCount ? ((edgeCount-redCount)/edgeCount*100).toFixed(0) : 100;
-          const color = redCount ? 'var(--red)' : 'var(--green)';
+          const tr = getTraceCheckpoints(j.trace_id);
+          const devCount = tr ? (tr.deviations || []).length : 0;
+          const cpCount = tr ? (tr.checkpoints || []).length : 0;
+          const hasData = cpCount > 0;
+          const color = !hasData ? 'var(--text-dim)' : (devCount ? '#fbbf24' : 'var(--green)');
+          const label = !hasData ? 'Not checked' : (devCount ? devCount + ' deviation' + (devCount !== 1 ? 's' : '') : 'On Track');
           return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="navigateTo('pipeline')">
             <div style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0"></div>
             <div style="flex:1;font-size:.8rem;font-weight:500">${j.journey_name}</div>
-            <div style="font-size:.72rem;color:var(--text-dim)">${edgeCount} edges</div>
-            <div style="font-size:.75rem;color:${color};font-weight:500">${healthPct}%</div>
+            <div style="font-size:.72rem;color:var(--text-dim)">${cpCount} checkpoints</div>
+            <div style="font-size:.75rem;color:${color};font-weight:500">${label}</div>
           </div>`;
         }).join('')}
         ${!multiAgent.length ? '<div style="padding:12px;font-size:.8rem;color:var(--text-dim)">No multi-agent traces</div>' : ''}
@@ -888,27 +893,32 @@ function renderTraceDetail(traceId) {
     </div>
     ${journey.initial_user_request ? `<div style="background:var(--copper-dim);border:1px solid rgba(200,149,108,.2);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:.85rem"><strong style="color:var(--copper)">User Request:</strong> ${journey.initial_user_request}</div>` : ''}
     <div class="dag-container">
-      <div class="dag-title">Execution DAG &mdash; Edge Similarity Analysis</div>
+      <div class="dag-title">Execution DAG</div>
       <div id="dag-detail-svg"></div>
     </div>
     ${(() => {
-      const analysis = analyzeEdges(journey);
-      const reds = analysis.results.filter(r => r.status === 'red');
-      if (!analysis.results.length) return '';
-      return `<div class="table-wrap" style="margin-bottom:20px">
-        <div class="table-header">
-          <div class="table-title">Edge Analysis</div>
-          <div style="font-size:.8rem;color:var(--text-secondary)">avg drift: ${analysis.avg.toFixed(3)} &middot; stdev: ${analysis.stdev.toFixed(3)}</div>
-        </div>
-        <table class="edge-table">
-          <thead><tr><th>Edge</th><th>Similarity</th><th>Status</th></tr></thead>
-          <tbody>${analysis.results.map(r => {
-            const pct = (r.similarity * 100).toFixed(0);
-            const color = r.status === 'green' ? 'var(--green)' : 'var(--red)';
-            return `<tr><td>${r.parent_name} &rarr; ${r.child_name}</td><td><span class="sim-bar"><span class="sim-bar-fill" style="width:${pct}%;background:${color}"></span></span>${pct}%</td><td><span class="edge-status ${r.status}">${r.status==='green'?'Pass':'Issue'}</span></td></tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>`;
+      const tr = getTraceCheckpoints(traceId);
+      if (!tr || !tr.checkpoints || !tr.checkpoints.length) return '';
+      const cps = tr.checkpoints;
+      const devCount = (tr.deviations || []).length;
+      return '<div class="table-wrap" style="margin-bottom:20px">' +
+        '<div class="table-header">' +
+          '<div class="table-title">Goal Verification</div>' +
+          '<div style="font-size:.8rem;color:var(--text-secondary)">' + cps.length + ' checkpoint' + (cps.length !== 1 ? 's' : '') + ' &middot; ' + devCount + ' deviation' + (devCount !== 1 ? 's' : '') + '</div>' +
+        '</div>' +
+        '<table class="edge-table">' +
+          '<thead><tr><th>Checkpoint</th><th>Agents</th><th>Verdict</th><th>Status</th></tr></thead>' +
+          '<tbody>' + cps.map(function(cp) {
+            var isD = cp.is_deviation;
+            return '<tr>' +
+              '<td style="font-weight:500">Step ' + cp.step_count + '</td>' +
+              '<td style="font-size:.82rem;color:var(--text-secondary)">' + (cp.agent_names || []).join(', ') + '</td>' +
+              '<td style="font-size:.82rem;color:var(--text-secondary);max-width:400px">' + cp.verdict + '</td>' +
+              '<td><span class="edge-status ' + (isD ? 'amber' : 'green') + '">' + (isD ? 'Off Track' : 'On Track') + '</span></td>' +
+            '</tr>';
+          }).join('') + '</tbody>' +
+        '</table>' +
+      '</div>';
     })()}
     <div class="section-heading" style="margin-top:24px">Agent Steps</div>
     <div class="agent-cards anim-stagger">
@@ -916,13 +926,9 @@ function renderTraceDetail(traceId) {
     </div>
   `;
 
-  // Render DAG with colored edges from analysis
-  const edgeAnalysis = analyzeEdges(journey);
-  if (edgeAnalysis.results.length) {
-    renderDAGWithEdgeColors('dag-detail-svg', journey, edgeAnalysis.results);
-  } else {
-    renderDAG('dag-detail-svg', journey);
-  }
+  // Render DAG with checkpoint coloring
+  const traceCheckpoints = getTraceCheckpoints(traceId);
+  renderDAGWithCheckpoints('dag-detail-svg', journey, traceCheckpoints);
 }
 
 function renderAgentCard(s) {
@@ -1111,8 +1117,33 @@ function showAgentPanel(agentId, traceId) {
     }
   }
 
+  // Cascade evaluation verdict
+  var cascadeHTML = '';
+  if (traceResult && traceResult.cascade_evaluation) {
+    var verdict = (traceResult.cascade_evaluation.agent_verdicts || {})[agentId];
+    if (verdict) {
+      var tierColors = {1: '#4ade80', 2: '#60a5fa', 3: verdict.status === 'pass' ? '#a78bfa' : '#f87171'};
+      var tierColor = tierColors[verdict.evaluated_by_tier] || '#4a4558';
+      var tierBg = verdict.status === 'fail' ? 'rgba(248,113,113,.06)' : (verdict.evaluated_by_tier === 1 ? 'rgba(74,222,128,.06)' : verdict.evaluated_by_tier === 2 ? 'rgba(96,165,250,.06)' : 'rgba(167,139,250,.06)');
+      var tierBorder = verdict.status === 'fail' ? 'rgba(248,113,113,.2)' : (verdict.evaluated_by_tier === 1 ? 'rgba(74,222,128,.15)' : verdict.evaluated_by_tier === 2 ? 'rgba(96,165,250,.15)' : 'rgba(167,139,250,.15)');
+      cascadeHTML = '<div style="background:' + tierBg + ';border:1px solid ' + tierBorder + ';border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+          '<span class="tier-badge ' + (verdict.status === 'fail' ? 't3-fail' : 't' + verdict.evaluated_by_tier) + '">T' + verdict.evaluated_by_tier + ' ' + verdict.tier_name + '</span>' +
+          '<span style="font-size:.82rem;font-weight:600;color:' + tierColor + '">' + (verdict.score * 100).toFixed(0) + '% — ' + (verdict.status === 'pass' ? 'Pass' : 'Fail') + '</span>' +
+        '</div>' +
+        (verdict.fail_reasons && verdict.fail_reasons.length ? '<div style="font-size:.78rem;color:var(--text-secondary);line-height:1.6;margin-bottom:6px"><strong style="color:var(--text-dim)">Issues:</strong><ul style="margin:4px 0 0 16px;padding:0">' + verdict.fail_reasons.map(function(r) { return '<li>' + r + '</li>'; }).join('') + '</ul></div>' : '') +
+        (verdict.details && verdict.details.role_assessment ? '<div style="font-size:.75rem;color:var(--text-dim);line-height:1.5;margin-top:6px;display:flex;flex-direction:column;gap:2px">' +
+          '<span><strong>Role:</strong> ' + verdict.details.role_assessment + '</span>' +
+          '<span><strong>Quality:</strong> ' + verdict.details.quality_assessment + '</span>' +
+          '<span><strong>Alignment:</strong> ' + verdict.details.goal_alignment + '</span>' +
+        '</div>' : '') +
+      '</div>';
+    }
+  }
+
   document.getElementById('panelContent').innerHTML = `
     <h3 style="font-family:var(--font-display);font-size:1.3rem;margin-bottom:16px">${agent.agent_name}</h3>
+    ${cascadeHTML}
     ${deviationHTML}
     ${renderAgentCard(agent)}
   `;
@@ -1263,18 +1294,26 @@ function renderDAGViewer(selectedTrace) {
         value="${pipelineState.userGoal || ''}"
         style="background:var(--card);padding:10px 14px;min-width:300px;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem;flex:1"
       />
-      <button class="btn btn-primary" style="padding:10px 20px;font-size:.85rem" onclick="pipelineState.userGoal = document.getElementById('dagUserGoal').value; pipelineState.results = null; loadPipelineFromBackend().then(function() { renderDAGViewer(document.getElementById('dagSelect')?.value); })">Verify Goal</button>
+      <button class="btn btn-primary" style="padding:10px 20px;font-size:.85rem" onclick="pipelineState.userGoal = document.getElementById('dagUserGoal').value; pipelineState.evaluationMode = 'cascade'; pipelineState.results = null; loadPipelineFromBackend().then(function() { renderDAGViewer(document.getElementById('dagSelect')?.value); })">Verify Goal</button>
     </div>
 
     <div class="dag-container">
       <div class="dag-title">${journey?.journey_name || ''}</div>
       <div id="dag-viewer-svg"></div>
       <div class="dag-legend">
+        ${traceResult && traceResult.cascade_evaluation ? `
+        <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#4ade80"></div> All Clear (3/3 tiers)</div>
+        <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#f87171"></div> Failed T1 (Sentinel)</div>
+        <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#fbbf24"></div> Failed T2 (Rules)</div>
+        <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#a78bfa"></div> Failed T3 (Specialist)</div>
+        <div class="dag-legend-item"><div class="dag-legend-dot" style="background:transparent;border:1.5px solid #c8956c"></div> Root</div>
+        ` : `
         <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#4ade80"></div> On Track (LLM verified)</div>
         <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#fbbf24"></div> Goal Deviation</div>
         <div class="dag-legend-item"><div class="dag-legend-dot" style="background:transparent;border:1.5px solid #c8956c"></div> Root node</div>
         <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#4a4558"></div> Not yet checked</div>
         <div class="dag-legend-item"><div class="dag-legend-dot" style="background:#60a5fa"></div> Latency</div>
+        `}
         ${checkpoints.length ? `<div style="margin-left:auto;display:flex;gap:16px;color:var(--text-dim);font-size:.72rem">
           <span>${checkpoints.length} checkpoint${checkpoints.length !== 1 ? 's' : ''}</span>
           <span style="color:${deviations.length ? '#fbbf24' : 'var(--text-dim)'}">${deviations.length} deviation${deviations.length !== 1 ? 's' : ''}</span>
@@ -1378,12 +1417,12 @@ function renderSettings() {
     <div class="metric-card" style="max-width:500px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px">
       <div style="font-weight:500;margin-bottom:16px">General</div>
       <div style="display:flex;flex-direction:column;gap:14px">
-        <div><label style="font-size:.75rem;color:var(--text-dim);display:block;margin-bottom:4px">Platform Name</label><input value="Arcana" style="width:100%"></div>
+        <div><label style="font-size:.75rem;color:var(--text-dim);display:block;margin-bottom:4px">Platform Name</label><input value="ArcanaAI" style="width:100%"></div>
         <div><label style="font-size:.75rem;color:var(--text-dim);display:block;margin-bottom:4px">Data Source</label><input value="keywords_ai_agent_output_samples.json" style="width:100%" readonly></div>
         <div><label style="font-size:.75rem;color:var(--text-dim);display:block;margin-bottom:4px">Schema Version</label><input value="${DATA.schema_version}" style="width:100%" readonly></div>
       </div>
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:.75rem;color:var(--text-dim)">
-        Arcana v0.1.0 &mdash; LLM Observability Platform<br>
+        ArcanaAI v0.1.0 &mdash; LLM Observability Platform<br>
         ${journeys.length} traces &middot; ${getAllAgents().length} agents &middot; ${Object.keys(getAllAgents().reduce((m,a)=>{m[a.model_parameters?.model||'']=1;return m},{})).length} models
       </div>
     </div>
@@ -1569,7 +1608,8 @@ async function loadPipelineFromBackend() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         traces: journeys,
-        user_goal: pipelineState.userGoal
+        user_goal: pipelineState.userGoal,
+        evaluation_mode: pipelineState.evaluationMode || 'checkpoints'
       })
     });
 
@@ -1598,139 +1638,146 @@ function getTraceCheckpoints(traceId) {
 }
 
 async function renderPipeline(selectedTrace) {
-  if (!dataLoaded) return renderEmptyState('page-pipeline', 'No Pipeline Data', 'Upload agent logs to run semantic pipeline analysis and detect communication issues between agents.');
-  // Load from backend if not already loaded
-  if (pipelineState.useBackend && !pipelineState.results && !pipelineState.loading) {
-    document.getElementById('page-pipeline').innerHTML = `
-      <div class="section-heading">Semantic Pipeline</div>
-      <div class="section-sub">Loading analysis from backend...</div>
-      <div style="padding:40px;text-align:center">
-        <div style="color:var(--copper);font-size:1rem">Analyzing agent communication patterns...</div>
-      </div>
-    `;
-    await loadPipelineFromBackend();
-    // Re-render after loading
-    renderPipeline(selectedTrace);
-    return;
-  }
+  if (!dataLoaded) return renderEmptyState('page-pipeline', 'No Pipeline Data', 'Upload agent logs to run goal verification and monitor agent alignment.');
 
   const multiAgent = journeys.filter(j => j.samples.length > 1);
   const sel = selectedTrace || (multiAgent[0]?.trace_id || journeys[0].trace_id);
   const journey = journeys.find(j => j.trace_id === sel);
-  const analysis = journey ? analyzeEdges(journey) : { results:[], avg:0, stdev:0 };
-  const reds = analysis.results.filter(r => r.status === 'red');
-  const greens = analysis.results.filter(r => r.status === 'green');
+  const traceResult = getTraceCheckpoints(sel);
+  const checkpoints = traceResult ? traceResult.checkpoints || [] : [];
+  const deviationsList = traceResult ? traceResult.deviations || [] : [];
 
   // Global stats across ALL multi-agent journeys
-  let totalEdges = 0, totalRed = 0;
-  const allAnalyses = multiAgent.map(j => { const a = analyzeEdges(j); totalEdges += a.results.length; totalRed += a.results.filter(r=>r.status==='red').length; return { journey: j, analysis: a }; });
-
-  const backendStatus = pipelineState.useBackend ?
-    '<span style="color:var(--copper);font-size:.7rem;margin-left:8px">⚡ Backend Analysis</span>' :
-    '<span style="color:var(--text-dim);font-size:.7rem;margin-left:8px">⚠️ Client-side (backend unavailable)</span>';
+  let totalCheckpoints = 0, totalDeviations = 0;
+  const allTraceData = multiAgent.map(function(j) {
+    var tr = getTraceCheckpoints(j.trace_id);
+    var cps = tr ? tr.checkpoints || [] : [];
+    var devs = tr ? tr.deviations || [] : [];
+    totalCheckpoints += cps.length;
+    totalDeviations += devs.length;
+    return { journey: j, checkpoints: cps, deviations: devs, totalSteps: tr ? tr.total_steps || 0 : 0 };
+  });
+  var onTrackRate = totalCheckpoints ? (((totalCheckpoints - totalDeviations) / totalCheckpoints) * 100).toFixed(0) : '--';
 
   document.getElementById('page-pipeline').innerHTML = `
-    <div class="section-heading">Semantic Pipeline ${backendStatus}</div>
-    <div class="section-sub">Agent communication analysis &mdash; detecting input/output drift across DAG edges using cosine similarity (threshold: 0.8).</div>
+    <div class="section-heading">Goal Monitor</div>
+    <div class="section-sub">LLM-based goal verification &mdash; checking agent alignment every 2 nodes against your stated goal.</div>
     <div class="pipeline-summary anim-stagger">
-      <div class="stat-card green"><div class="stat-label">Total Edges Analyzed</div><div class="stat-value">${totalEdges}</div><div class="stat-sub">across ${multiAgent.length} multi-agent traces</div></div>
-      <div class="stat-card red"><div class="stat-label">Red Edges (Issues)</div><div class="stat-value">${totalRed}</div><div class="stat-sub">${totalEdges ? ((totalRed/totalEdges)*100).toFixed(0) : 0}% of all edges</div></div>
-      <div class="stat-card copper"><div class="stat-label">Avg Drift</div><div class="stat-value">${(allAnalyses.reduce((s,a) => s+a.analysis.avg,0)/Math.max(allAnalyses.length,1)).toFixed(3)}</div><div class="stat-sub">lower is better (0 = identical)</div></div>
+      <div class="stat-card green"><div class="stat-label">Total Checkpoints</div><div class="stat-value">${totalCheckpoints}</div><div class="stat-sub">across ${multiAgent.length} multi-agent traces</div></div>
+      <div class="stat-card copper"><div class="stat-label">Deviations Found</div><div class="stat-value" style="color:${totalDeviations ? '#fbbf24' : 'var(--text)'}">${totalDeviations}</div><div class="stat-sub">${totalCheckpoints ? ((totalDeviations/totalCheckpoints)*100).toFixed(0) : 0}% of checkpoints</div></div>
+      <div class="stat-card blue"><div class="stat-label">On-Track Rate</div><div class="stat-value">${onTrackRate}%</div><div class="stat-sub">higher is better</div></div>
     </div>
 
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-      <select id="pipelineSelect" onchange="renderPipeline(this.value)" style="background:var(--card);padding:8px 12px;min-width:280px">
+      <select id="pipelineSelect" onchange="renderPipeline(this.value)" style="background:var(--card);padding:10px 14px;min-width:280px">
         ${multiAgent.map(j => `<option value="${j.trace_id}" ${j.trace_id===sel?'selected':''}>${j.journey_name} (${j.samples.length} agents)</option>`).join('')}
       </select>
-      <input id="pipelineGoal" type="text" placeholder="Enter user goal for hallucination check..."
+      <input id="pipelineGoal" type="text" placeholder="Enter user goal to verify agent alignment..."
         value="${pipelineState.userGoal || ''}"
-        style="background:var(--card);padding:8px 12px;min-width:280px;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.82rem;flex:1"
+        style="background:var(--card);padding:10px 14px;min-width:280px;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem;flex:1"
       />
-      <button class="btn btn-primary" style="padding:8px 16px;font-size:.82rem" onclick="pipelineState.userGoal = document.getElementById('pipelineGoal').value; pipelineState.results = null; loadPipelineFromBackend().then(function() { renderPipeline(document.getElementById('pipelineSelect')?.value); })">Verify</button>
-      <span style="font-size:.8rem;color:var(--text-secondary)">${analysis.results.length} edges &middot; ${reds.length} red &middot; avg drift ${analysis.avg.toFixed(3)} &middot; stdev ${analysis.stdev.toFixed(3)}</span>
+      <select id="evalModeSelect" onchange="pipelineState.evaluationMode = this.value" style="background:var(--card);padding:10px 14px;min-width:120px">
+        <option value="cascade" ${pipelineState.evaluationMode==='cascade'?'selected':''}>Cascade</option>
+        <option value="checkpoints" ${pipelineState.evaluationMode==='checkpoints'?'selected':''}>Checkpoints</option>
+        <option value="both" ${pipelineState.evaluationMode==='both'?'selected':''}>Both</option>
+      </select>
+      <button class="btn btn-primary" style="padding:10px 20px;font-size:.85rem" onclick="pipelineState.userGoal = document.getElementById('pipelineGoal').value; pipelineState.evaluationMode = document.getElementById('evalModeSelect').value; pipelineState.results = null; loadPipelineFromBackend().then(function() { renderPipeline(document.getElementById('pipelineSelect')?.value); })">Verify Goal</button>
     </div>
 
     <div class="dag-container">
-      <div class="dag-title">Edge Analysis DAG</div>
+      <div class="dag-title">Goal Verification DAG</div>
       <div id="pipeline-dag-svg"></div>
     </div>
 
+    ${(function() {
+      var ce = traceResult && traceResult.cascade_evaluation;
+      if (!ce) return '';
+      var ov = ce.overall || {};
+      var verdicts = ce.agent_verdicts || {};
+      var verdictRows = Object.entries(verdicts).map(function(entry) {
+        var aid = entry[0]; var v = entry[1];
+        var agentNode = journey ? journey.samples.find(function(s) { return s.agent_id === aid; }) : null;
+        var agentName = agentNode ? agentNode.agent_name : aid.split('-').pop();
+        var tierClass = v.status === 'fail' ? 't3-fail' : ('t' + v.evaluated_by_tier);
+        var reason = (v.fail_reasons || []).join('; ') || (v.status === 'pass' ? 'All checks passed' : '');
+        return '<tr>' +
+          '<td style="font-weight:500">' + agentName + '</td>' +
+          '<td><span class="tier-badge ' + tierClass + '">T' + v.evaluated_by_tier + ' ' + v.tier_name + '</span></td>' +
+          '<td>' + (v.score * 100).toFixed(0) + '%</td>' +
+          '<td><span class="edge-status ' + (v.status === 'pass' ? 'green' : 'red') + '">' + (v.status === 'pass' ? 'Pass' : 'Fail') + '</span></td>' +
+          '<td style="font-size:.78rem;color:var(--text-secondary);max-width:300px">' + reason + '</td>' +
+        '</tr>';
+      }).join('');
+      return '<div style="margin-top:16px"><div class="section-heading" style="font-size:1.1rem;display:flex;align-items:center;gap:8px">Cascade Evaluation</div>' +
+        '<div class="section-sub" style="margin-bottom:12px">3-tier progressive evaluation: Sentinel (regex) &rarr; Rules Judge (1 LLM call) &rarr; Specialist (per-agent LLM).</div>' +
+        '<div class="pipeline-summary anim-stagger">' +
+          '<div class="stat-card green"><div class="stat-label">All Clear</div><div class="stat-value" style="color:#4ade80">' + (ov.passed_all || 0) + '</div><div class="stat-sub">Passed 3/3 tiers</div></div>' +
+          '<div class="stat-card" style="border-color:rgba(248,113,113,.15)"><div class="stat-label">Failed T1</div><div class="stat-value" style="color:#f87171">' + (ov.failed_tier1 || 0) + '</div><div class="stat-sub">Sentinel (regex)</div></div>' +
+          '<div class="stat-card" style="border-color:rgba(251,191,36,.15)"><div class="stat-label">Failed T2</div><div class="stat-value" style="color:#fbbf24">' + (ov.failed_tier2 || 0) + '</div><div class="stat-sub">Rules Judge</div></div>' +
+          '<div class="stat-card" style="border-color:rgba(167,139,250,.15)"><div class="stat-label">Failed T3</div><div class="stat-value" style="color:#a78bfa">' + (ov.failed_tier3 || 0) + '</div><div class="stat-sub">' + (ov.llm_calls_made || 0) + ' LLM calls</div></div>' +
+        '</div>' +
+        '<div class="table-wrap" style="margin-top:12px"><div class="table-header"><div class="table-title">Agent Verdicts</div></div>' +
+          '<table class="edge-table"><thead><tr><th>Agent</th><th>Evaluated By</th><th>Score</th><th>Status</th><th>Reason</th></tr></thead>' +
+          '<tbody>' + verdictRows + '</tbody></table></div></div>';
+    })()}
+
+    ${checkpoints.length ? `
     <div class="table-wrap" style="margin-top:16px">
-      <div class="table-header"><div class="table-title">Edge Similarity Results</div></div>
+      <div class="table-header"><div class="table-title">Checkpoint Results</div></div>
       <table class="edge-table">
-        <thead><tr><th>Edge</th><th>Similarity</th><th>Drift</th><th>Status</th><th>LLM Check</th></tr></thead>
-        <tbody>${analysis.results.map(r => {
-          const pct = (r.similarity * 100).toFixed(0);
-          const color = r.status === 'green' ? 'var(--green)' : 'var(--red)';
-          const verBadge = r.verification_status
-            ? (r.verification_status === 'cleared'
-              ? '<span class="edge-status green" style="font-size:.65rem">Cleared</span>'
-              : r.verification_status === 'verified_red'
-                ? '<span class="edge-status red" style="font-size:.65rem">Confirmed</span>'
-                : '<span style="color:var(--text-dim);font-size:.65rem">-</span>')
-            : '<span style="color:var(--text-dim);font-size:.65rem">-</span>';
-          return `<tr>
-            <td><span style="font-weight:500">${r.parent_name}</span> <span style="color:var(--text-dim)">&rarr;</span> <span style="font-weight:500">${r.child_name}</span></td>
-            <td><span class="sim-bar"><span class="sim-bar-fill" style="width:${pct}%;background:${color}"></span></span>${pct}%</td>
-            <td style="font-family:'DM Sans',monospace;font-size:.78rem;color:var(--text-secondary)">${r.diff.toFixed(4)}</td>
-            <td><span class="edge-status ${r.status}">${r.status === 'green' ? 'Pass' : 'Issue'}</span></td>
-            <td>${verBadge}</td>
-          </tr>`;
+        <thead><tr><th>Checkpoint</th><th>Agents</th><th>Verdict</th><th>Status</th></tr></thead>
+        <tbody>${checkpoints.map(function(cp) {
+          var isDeviation = cp.is_deviation;
+          var agentNames = (cp.agent_names || []).join(', ');
+          return '<tr>' +
+            '<td style="font-weight:500">Step ' + cp.step_count + '</td>' +
+            '<td style="font-size:.82rem;color:var(--text-secondary)">' + agentNames + '</td>' +
+            '<td style="font-size:.82rem;color:var(--text-secondary);max-width:400px">' + cp.verdict + '</td>' +
+            '<td><span class="edge-status ' + (isDeviation ? 'amber' : 'green') + '">' + (isDeviation ? 'Off Track' : 'On Track') + '</span></td>' +
+          '</tr>';
         }).join('')}</tbody>
       </table>
     </div>
 
-    ${reds.length ? `
-    <div style="margin-top:20px">
-      <div class="section-heading" style="color:var(--red);font-size:1.1rem">Communication Issues Detected</div>
-      <div class="agent-cards anim-stagger">
-        ${reds.map(r => {
-          const child = journey.samples.find(s => s.agent_id === r.child_id);
-          if (!child) return '';
-          const isClearedPipe = r.verification_status === 'cleared';
-          const isConfirmedPipe = r.verification_status === 'verified_red';
-          const pipeBorderColor = isClearedPipe ? 'rgba(74,222,128,.3)' : 'rgba(248,113,113,.3)';
-          const pipeVerBadge = isClearedPipe
-            ? '<span style="background:rgba(74,222,128,.12);color:#4ade80;padding:2px 8px;border-radius:100px;font-size:.7rem;font-weight:600;margin-left:8px">LLM: Aligned</span>'
-            : (isConfirmedPipe
-              ? '<span style="background:var(--red-dim);color:var(--red);padding:2px 8px;border-radius:100px;font-size:.7rem;font-weight:600;margin-left:8px">LLM: Hallucinating</span>'
-              : '');
-          const pipeExplanation = r.verification_explanation
-            ? '<div class="agent-field"><div class="agent-field-label" style="color:' + (isClearedPipe ? '#4ade80' : 'var(--red)') + '">LLM Verdict</div><div class="agent-field-value">' + r.verification_explanation + '</div></div>'
-            : '';
-          return `<div class="agent-card" style="border-color:${pipeBorderColor}">
-            <div class="agent-card-header"><div class="agent-card-name"><span class="dot ${isClearedPipe ? 'dot-pass' : 'dot-fail'}"></span>${r.parent_name} &rarr; ${r.child_name}<span style="font-size:.75rem;color:var(--red);margin-left:8px">similarity: ${(r.similarity*100).toFixed(0)}%</span>${pipeVerBadge}</div></div>
-            <div class="agent-card-body">
-              <div class="agent-field"><div class="agent-field-label">Input (from parent)</div><div class="agent-field-value">${truncText(child.input,300)}</div></div>
-              <div class="agent-field"><div class="agent-field-label">Output (this agent)</div><div class="agent-field-value">${truncText(child.output,300)}</div></div>
-              ${pipeExplanation}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : `<div style="margin-top:20px;padding:20px;background:var(--green-dim);border:1px solid rgba(74,222,128,.2);border-radius:var(--radius-lg);font-size:.85rem;color:var(--green)">All edges pass similarity threshold. No communication issues detected in this trace.</div>`}
+    ${deviationsList.length ? '<div style="margin-top:20px">' +
+      '<div class="section-heading" style="color:#fbbf24;font-size:1.1rem;display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:#fbbf24;flex-shrink:0"></span>Goal Deviations Detected</div>' +
+      '<div class="section-sub" style="margin-bottom:12px">These checkpoints indicate agents are not aligned with the stated goal.</div>' +
+      deviationsList.map(function(d) {
+        return '<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:10px">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+            '<span style="color:#fbbf24;font-weight:600;font-size:.88rem">Step ' + d.step_count + '</span>' +
+            '<span class="edge-status amber">Off Track</span>' +
+          '</div>' +
+          '<div style="font-size:.82rem;color:var(--text-secondary);line-height:1.6">' + d.verdict + '</div>' +
+          '<div style="font-size:.72rem;color:var(--text-dim);margin-top:6px">Agents: ' + (d.agent_names || d.agent_ids || []).join(', ') + '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>' : '<div style="margin-top:20px;padding:20px;background:var(--green-dim);border:1px solid rgba(74,222,128,.2);border-radius:var(--radius-lg);font-size:.85rem;color:var(--green)">All checkpoints on track. Agents are aligned with the stated goal.</div>'}
+    ` : `<div style="margin-top:16px;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);font-size:.85rem;color:var(--text-secondary)">
+      ${pipelineState.userGoal ? (pipelineState.loading ? 'Verifying goal alignment...' : (pipelineState.error ? 'Backend unavailable: ' + pipelineState.error : 'Click "Verify Goal" to run LLM checkpoints.')) : 'Enter a user goal and click "Verify Goal" to check agent alignment.'}
+    </div>`}
 
     <div style="margin-top:24px">
       <div class="section-heading" style="font-size:1.1rem">All Traces Summary</div>
       <div class="table-wrap">
         <table class="edge-table">
-          <thead><tr><th>Journey</th><th>Edges</th><th>Red</th><th>Avg Drift</th><th>Health</th></tr></thead>
-          <tbody>${allAnalyses.map(({journey: j, analysis: a}) => {
-            const redCount = a.results.filter(r=>r.status==='red').length;
-            return `<tr style="cursor:pointer" onclick="renderPipeline('${j.trace_id}')">
-              <td style="font-weight:500">${j.journey_name}</td>
-              <td>${a.results.length}</td>
-              <td style="color:${redCount?'var(--red)':'var(--text-secondary)'}">${redCount}</td>
-              <td style="font-family:'DM Sans',monospace;font-size:.78rem">${a.avg.toFixed(4)}</td>
-              <td><span class="edge-status ${redCount?'red':'green'}">${redCount?redCount+' issues':'Healthy'}</span></td>
-            </tr>`;
+          <thead><tr><th>Journey</th><th>Steps</th><th>Checkpoints</th><th>Deviations</th><th>Status</th></tr></thead>
+          <tbody>${allTraceData.map(function(td) {
+            var devCount = td.deviations.length;
+            return '<tr style="cursor:pointer" onclick="renderPipeline(\'' + td.journey.trace_id + '\')">' +
+              '<td style="font-weight:500">' + td.journey.journey_name + '</td>' +
+              '<td>' + td.totalSteps + '</td>' +
+              '<td>' + td.checkpoints.length + '</td>' +
+              '<td style="color:' + (devCount ? '#fbbf24' : 'var(--text-secondary)') + '">' + devCount + '</td>' +
+              '<td><span class="edge-status ' + (devCount ? 'amber' : (td.checkpoints.length ? 'green' : 'neutral')) + '">' + (devCount ? devCount + ' deviation' + (devCount !== 1 ? 's' : '') : (td.checkpoints.length ? 'On Track' : 'Not checked')) + '</span></td>' +
+            '</tr>';
           }).join('')}</tbody>
         </table>
       </div>
     </div>
   `;
 
-  if (journey) renderDAGWithEdgeColors('pipeline-dag-svg', journey, analysis.results);
+  if (journey) renderDAGWithCheckpoints('pipeline-dag-svg', journey, traceResult);
 }
 window.renderPipeline = renderPipeline;
 
@@ -1759,6 +1806,23 @@ function renderDAGWithCheckpoints(containerId, journey, traceResult) {
     deviationNodeSet.forEach(function(id) { onTrackNodeSet.delete(id); });
   }
 
+  // Build cascade evaluation sets: green = passed ALL tiers, red = failed at any tier
+  const cascadeVerdicts = (traceResult && traceResult.cascade_evaluation) ? traceResult.cascade_evaluation.agent_verdicts || {} : {};
+  const hasCascade = Object.keys(cascadeVerdicts).length > 0;
+  const passedAllSet = new Set();
+  const failedT1Set = new Set();
+  const failedT2Set = new Set();
+  const failedT3Set = new Set();
+  Object.entries(cascadeVerdicts).forEach(function([aid, v]) {
+    if (v.status === 'pass') {
+      passedAllSet.add(aid);
+    } else {
+      if (v.evaluated_by_tier === 1) failedT1Set.add(aid);
+      else if (v.evaluated_by_tier === 2) failedT2Set.add(aid);
+      else failedT3Set.add(aid);
+    }
+  });
+
   // Identify root nodes (no parents)
   const rootSet = new Set();
   Object.entries(dagData.parentsOf).forEach(([id, pArr]) => {
@@ -1770,6 +1834,10 @@ function renderDAGWithCheckpoints(containerId, journey, traceResult) {
     <marker id="arrow-d" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#2a2a3c"/></marker>
     <filter id="glow-copper"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#c8956c" flood-opacity=".35"/></filter>
     <filter id="glow-amber"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#fbbf24" flood-opacity=".35"/></filter>
+    <filter id="glow-green"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#4ade80" flood-opacity=".3"/></filter>
+    <filter id="glow-blue"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#60a5fa" flood-opacity=".3"/></filter>
+    <filter id="glow-purple"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#a78bfa" flood-opacity=".3"/></filter>
+    <filter id="glow-red"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#f87171" flood-opacity=".35"/></filter>
     <filter id="node-shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity=".3"/></filter>
   </defs>`;
 
@@ -1790,13 +1858,41 @@ function renderDAGWithCheckpoints(containerId, journey, traceResult) {
     const isDeviation = deviationNodeSet.has(p.id);
     const isOnTrack = onTrackNodeSet.has(p.id);
 
-    // Colors: deviation=amber, on-track=green, default=neutral
-    const fill = isDeviation ? 'rgba(251,191,36,.08)' : (isOnTrack ? 'rgba(74,222,128,.06)' : '#111118');
-    const stroke = isRoot ? '#c8956c' : (isDeviation ? 'rgba(251,191,36,.5)' : (isOnTrack ? 'rgba(74,222,128,.4)' : '#2a2a3c'));
-    const strokeW = isRoot && !isDeviation ? 1.5 : ((isDeviation || isOnTrack) ? 2 : 1);
-    const glowFilter = isDeviation ? 'url(#glow-amber)' : (isRoot ? 'url(#glow-copper)' : 'url(#node-shadow)');
-    const textColor = isDeviation ? '#fbbf24' : (isOnTrack ? '#4ade80' : '#e8e4df');
-    const dotColor = isDeviation ? '#fbbf24' : (isOnTrack ? '#4ade80' : '#4a4558');
+    // Cascade membership: green only if passed ALL tiers
+    const isPassedAll = passedAllSet.has(p.id);
+    const isFailT1 = failedT1Set.has(p.id);
+    const isFailT2 = failedT2Set.has(p.id);
+    const isFailT3 = failedT3Set.has(p.id);
+    const isFailed = isFailT1 || isFailT2 || isFailT3;
+
+    // Colors: green = passed all 3 tiers, red shades = failed at a tier
+    let fill, stroke, strokeW, glowFilter, textColor, dotColor;
+    if (hasCascade) {
+      if (isFailT1) {
+        fill = 'rgba(248,113,113,.08)'; stroke = 'rgba(248,113,113,.5)'; strokeW = 2;
+        glowFilter = 'url(#glow-red)'; textColor = '#f87171'; dotColor = '#f87171';
+      } else if (isFailT2) {
+        fill = 'rgba(251,146,60,.07)'; stroke = 'rgba(251,146,60,.45)'; strokeW = 2;
+        glowFilter = 'url(#glow-amber)'; textColor = '#fb923c'; dotColor = '#fb923c';
+      } else if (isFailT3) {
+        fill = 'rgba(167,139,250,.06)'; stroke = 'rgba(167,139,250,.45)'; strokeW = 2;
+        glowFilter = 'url(#glow-purple)'; textColor = '#a78bfa'; dotColor = '#a78bfa';
+      } else if (isPassedAll) {
+        fill = 'rgba(74,222,128,.06)'; stroke = 'rgba(74,222,128,.4)'; strokeW = 2;
+        glowFilter = 'url(#glow-green)'; textColor = '#4ade80'; dotColor = '#4ade80';
+      } else {
+        fill = '#111118'; stroke = '#2a2a3c'; strokeW = 1;
+        glowFilter = 'url(#node-shadow)'; textColor = '#e8e4df'; dotColor = '#4a4558';
+      }
+      if (isRoot && !isFailed) { stroke = '#c8956c'; strokeW = 1.5; glowFilter = 'url(#glow-copper)'; }
+    } else {
+      fill = isDeviation ? 'rgba(251,191,36,.08)' : (isOnTrack ? 'rgba(74,222,128,.06)' : '#111118');
+      stroke = isRoot ? '#c8956c' : (isDeviation ? 'rgba(251,191,36,.5)' : (isOnTrack ? 'rgba(74,222,128,.4)' : '#2a2a3c'));
+      strokeW = isRoot && !isDeviation ? 1.5 : ((isDeviation || isOnTrack) ? 2 : 1);
+      glowFilter = isDeviation ? 'url(#glow-amber)' : (isRoot ? 'url(#glow-copper)' : 'url(#node-shadow)');
+      textColor = isDeviation ? '#fbbf24' : (isOnTrack ? '#4ade80' : '#e8e4df');
+      dotColor = isDeviation ? '#fbbf24' : (isOnTrack ? '#4ade80' : '#4a4558');
+    }
 
     const name = (p.node.agent_name || 'Agent').replace(/Agent$/,'').replace(/([A-Z])/g,' $1').trim();
     const model = (p.node.model_parameters?.model || '').split('-').slice(0,2).join('-');
@@ -1831,20 +1927,34 @@ function renderDAGWithCheckpoints(containerId, journey, traceResult) {
       svg += `<text x="${p.x + p.w - 22}" y="${p.y + 15}" text-anchor="middle" fill="#c8956c" font-size="7" font-weight="600" font-family="DM Sans,sans-serif">ROOT</text>`;
     }
 
-    // Deviation badge (bottom-left)
-    if (isDeviation) {
-      const label = 'Off Track';
-      const bw = label.length * 6 + 10;
-      svg += `<rect x="${p.x + 6}" y="${p.y + p.h - 18}" width="${bw}" height="14" rx="3" fill="rgba(251,191,36,.12)" stroke="rgba(251,191,36,.3)" stroke-width=".5"/>`;
-      svg += `<text x="${p.x + 6 + bw/2}" y="${p.y + p.h - 8}" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="600" font-family="DM Sans,sans-serif">${label}</text>`;
-    }
+    // Cascade tier badge or deviation/on-track badge (bottom-left)
+    if (hasCascade) {
+      let tierLabel = '', tierFill = '', tierStroke = '', tierText = '';
+      if (isPassedAll) { tierLabel = 'All Clear'; tierFill = 'rgba(74,222,128,.12)'; tierStroke = 'rgba(74,222,128,.3)'; tierText = '#4ade80'; }
+      else if (isFailT1) { tierLabel = 'Fail T1'; tierFill = 'rgba(248,113,113,.12)'; tierStroke = 'rgba(248,113,113,.3)'; tierText = '#f87171'; }
+      else if (isFailT2) { tierLabel = 'Fail T2'; tierFill = 'rgba(251,191,36,.12)'; tierStroke = 'rgba(251,191,36,.3)'; tierText = '#fbbf24'; }
+      else if (isFailT3) { tierLabel = 'Fail T3'; tierFill = 'rgba(167,139,250,.12)'; tierStroke = 'rgba(167,139,250,.3)'; tierText = '#a78bfa'; }
+      if (tierLabel) {
+        const bw = tierLabel.length * 6 + 10;
+        svg += `<rect x="${p.x + 6}" y="${p.y + p.h - 18}" width="${bw}" height="14" rx="3" fill="${tierFill}" stroke="${tierStroke}" stroke-width=".5"/>`;
+        svg += `<text x="${p.x + 6 + bw/2}" y="${p.y + p.h - 8}" text-anchor="middle" fill="${tierText}" font-size="8" font-weight="600" font-family="DM Sans,sans-serif">${tierLabel}</text>`;
+      }
+    } else {
+      // Deviation badge (bottom-left)
+      if (isDeviation) {
+        const label = 'Off Track';
+        const bw = label.length * 6 + 10;
+        svg += `<rect x="${p.x + 6}" y="${p.y + p.h - 18}" width="${bw}" height="14" rx="3" fill="rgba(251,191,36,.12)" stroke="rgba(251,191,36,.3)" stroke-width=".5"/>`;
+        svg += `<text x="${p.x + 6 + bw/2}" y="${p.y + p.h - 8}" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="600" font-family="DM Sans,sans-serif">${label}</text>`;
+      }
 
-    // On-track badge (bottom-left)
-    if (isOnTrack) {
-      const label = 'On Track';
-      const bw = label.length * 6 + 10;
-      svg += `<rect x="${p.x + 6}" y="${p.y + p.h - 18}" width="${bw}" height="14" rx="3" fill="rgba(74,222,128,.12)" stroke="rgba(74,222,128,.3)" stroke-width=".5"/>`;
-      svg += `<text x="${p.x + 6 + bw/2}" y="${p.y + p.h - 8}" text-anchor="middle" fill="#4ade80" font-size="8" font-weight="600" font-family="DM Sans,sans-serif">${label}</text>`;
+      // On-track badge (bottom-left)
+      if (isOnTrack) {
+        const label = 'On Track';
+        const bw = label.length * 6 + 10;
+        svg += `<rect x="${p.x + 6}" y="${p.y + p.h - 18}" width="${bw}" height="14" rx="3" fill="rgba(74,222,128,.12)" stroke="rgba(74,222,128,.3)" stroke-width=".5"/>`;
+        svg += `<text x="${p.x + 6 + bw/2}" y="${p.y + p.h - 8}" text-anchor="middle" fill="#4ade80" font-size="8" font-weight="600" font-family="DM Sans,sans-serif">${label}</text>`;
+      }
     }
 
     svg += `</g>`;
@@ -2530,6 +2640,7 @@ function showWorkflowDialog() {
         <label class="agent-field-label" style="display:block;margin-bottom:6px">Workflow Type</label>
         <select id="workflowType" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-size:.85rem">
           <option value="trip_booking">Trip Booking (6 agents, diamond pattern)</option>
+          <option value="finance_research">Finance Research (6 agents, fan-out + diamond)</option>
           <option value="refund_request">Refund Request (3 agents, fan-out)</option>
           <option value="quote_generation">Quote Generation (4 agents, diamond)</option>
           <option value="custom">Custom Workflow</option>
@@ -2693,14 +2804,25 @@ async function executeWorkflow() {
       dataLoaded = true;
     }
 
-    // Persist the user's goal so the DAG viewer shows it
+    // Persist the user's goal and run cascade evaluation
     pipelineState.userGoal = goal;
+    pipelineState.evaluationMode = 'cascade';
     pipelineState.results = null;
 
-    // Show success
+    // Show progress — running 3-tier evaluation
+    statusDiv.style.cssText = 'margin-bottom:16px;padding:12px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2);border-radius:var(--radius-md);display:block';
+    statusText.style.color = '#a78bfa';
+    statusText.innerHTML = 'Workflow complete! Running 3-tier cascade evaluation on ' + finalJourney.samples.length + ' agents...';
+
+    // Run cascade evaluation before navigating
+    await loadPipelineFromBackend();
+
+    // Show final success
     statusDiv.style.cssText = 'margin-bottom:16px;padding:12px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:var(--radius-md);display:block';
     statusText.style.color = 'var(--green)';
-    statusText.innerHTML = 'Workflow complete! Trace: ' + traceId + ' (' + finalJourney.samples.length + ' agents)';
+    const cascadeResult = pipelineState.results && pipelineState.results[traceId] && pipelineState.results[traceId].cascade_evaluation;
+    const cascadeSummary = cascadeResult ? ' | Cascade: ' + (cascadeResult.overall.passed_all || 0) + ' passed, ' + ((cascadeResult.overall.failed_tier1 || 0) + (cascadeResult.overall.failed_tier2 || 0) + (cascadeResult.overall.failed_tier3 || 0)) + ' failed' : '';
+    statusText.innerHTML = 'Workflow complete! Trace: ' + traceId + ' (' + finalJourney.samples.length + ' agents)' + cascadeSummary;
 
     // Navigate to the new trace in DAG viewer
     setTimeout(() => {

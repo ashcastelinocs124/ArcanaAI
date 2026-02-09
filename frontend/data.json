@@ -4,13 +4,13 @@
   "journeys": [
     {
       "trace_id": "tr-a7f2-9b3c-4e1d-8f6a",
-      "journey_name": "Trip Booking (London \u2192 Paris)",
+      "journey_name": "Trip Booking (London → Paris)",
       "samples": [
         {
           "agent_turn": 1,
           "agent_name": "FlightSearchAgent",
           "core_payload": {
-            "completion_message": "I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (\u00a3347 for 2 adults). Fastest: AF-1801 at 06:45 (\u00a3412). Cheapest: VY-2501 at 14:20 (\u00a3289). Which would you prefer?",
+            "completion_message": "I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (£347 for 2 adults). Fastest: AF-1801 at 06:45 (£412). Cheapest: VY-2501 at 14:20 (£289). Which would you prefer?",
             "tool_calls": [
               {
                 "tool_id": "tc-8a2b-4c1d",
@@ -63,7 +63,7 @@
           "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-1",
           "parent_id": null,
           "input": "Book a flight from London to Paris for 2 adults on March 15, 2025. I'd also like a hotel near the airport.",
-          "output": "I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (\u00a3347 for 2 adults). Fastest: AF-1801 at 06:45 (\u00a3412). Cheapest: VY-2501 at 14:20 (\u00a3289). Which would you prefer?"
+          "output": "I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (£347 for 2 adults). Fastest: AF-1801 at 06:45 (£412). Cheapest: VY-2501 at 14:20 (£289). Which would you prefer?"
         },
         {
           "agent_turn": 2,
@@ -124,14 +124,14 @@
           },
           "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-2",
           "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-1",
-          "input": "[From FlightSearchAgent]: I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (\u00a3347 for 2 adults). Fastest: AF-1801 at 06:45 (\u00a3412). Cheapest: VY-2501 at 14:20 (\u00a3289). Which would you prefer?",
+          "input": "[From FlightSearchAgent]: I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (£347 for 2 adults). Fastest: AF-1801 at 06:45 (£412). Cheapest: VY-2501 at 14:20 (£289). Which would you prefer?",
           "output": "BA-218 selected. Proceeding to hold the seats. You have 15 minutes to complete payment."
         },
         {
           "agent_turn": 3,
           "agent_name": "HotelSearchAgent",
           "core_payload": {
-            "completion_message": "Found 2 hotels near CDG: Marriott \u20ac89/night, Ibis \u20ac58/night. Shall I add one to your trip?",
+            "completion_message": "Found 2 hotels near CDG: Marriott €89/night, Ibis €58/night. Shall I add one to your trip?",
             "tool_calls": [
               {
                 "tool_id": "tc-h1",
@@ -182,14 +182,14 @@
           },
           "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-3",
           "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-1",
-          "input": "[From FlightSearchAgent]: I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (\u00a3347 for 2 adults). Fastest: AF-1801 at 06:45 (\u00a3412). Cheapest: VY-2501 at 14:20 (\u00a3289). Which would you prefer?",
-          "output": "Found 2 hotels near CDG: Marriott \u20ac89/night, Ibis \u20ac58/night. Shall I add one to your trip?"
+          "input": "[From FlightSearchAgent]: I found 3 options for London to Paris on March 15. Best value: BA-218 at 09:30 (£347 for 2 adults). Fastest: AF-1801 at 06:45 (£412). Cheapest: VY-2501 at 14:20 (£289). Which would you prefer?",
+          "output": "Found 2 hotels near CDG: Marriott €89/night, Ibis €58/night. Shall I add one to your trip?"
         },
         {
           "agent_turn": 4,
           "agent_name": "PaymentAgent",
           "core_payload": {
-            "completion_message": "Payment of \u00a3359.00 successful. Card ending 4242 charged. Receipt sent to your email.",
+            "completion_message": "Payment of £359.00 successful. Card ending 4242 charged. Receipt sent to your email.",
             "tool_calls": [
               {
                 "tool_id": "tc-8a2b-4c1f",
@@ -242,13 +242,13 @@
           "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-4",
           "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-2",
           "input": "[From BookingAgent]: BA-218 selected. Proceeding to hold the seats. You have 15 minutes to complete payment.",
-          "output": "Payment of \u00a3359.00 successful. Card ending 4242 charged. Receipt sent to your email."
+          "output": "Payment of £359.00 successful. Card ending 4242 charged. Receipt sent to your email."
         },
         {
           "agent_turn": 5,
           "agent_name": "HotelBookingAgent",
           "core_payload": {
-            "completion_message": "Ibis booked for March 15-16. Confirmation #HB-7291. \u20ac58 total.",
+            "completion_message": "Ibis booked for March 15-16. Confirmation #HB-7291. €58 total.",
             "tool_calls": [
               {
                 "tool_id": "tc-h2",
@@ -299,14 +299,14 @@
           },
           "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-5",
           "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-3",
-          "input": "[From HotelSearchAgent]: Found 2 hotels near CDG: Marriott \u20ac89/night, Ibis \u20ac58/night. Shall I add one to your trip?",
-          "output": "Ibis booked for March 15-16. Confirmation #HB-7291. \u20ac58 total."
+          "input": "[From HotelSearchAgent]: Found 2 hotels near CDG: Marriott €89/night, Ibis €58/night. Shall I add one to your trip?",
+          "output": "Ibis booked for March 15-16. Confirmation #HB-7291. €58 total."
         },
         {
           "agent_turn": 6,
           "agent_name": "ConfirmationAgent",
           "core_payload": {
-            "completion_message": "Your trip is confirmed. Flight BA-218 LHR\u2192CDG March 15. Hotel Ibis CDG March 15-16. Total: \u00a3359 + \u20ac58. E-tickets attached.",
+            "completion_message": "Your trip is confirmed. Flight BA-218 LHR→CDG March 15. Hotel Ibis CDG March 15-16. Total: £359 + €58. E-tickets attached.",
             "tool_calls": [
               {
                 "tool_id": "tc-8a2b-4c20",
@@ -361,14 +361,14 @@
             "tr-a7f2-9b3c-4e1d-8f6a-agent-4",
             "tr-a7f2-9b3c-4e1d-8f6a-agent-5"
           ],
-          "input": "[From PaymentAgent]: Payment of \u00a3359.00 successful. Card ending 4242 charged. Receipt sent to your email.\n\n[From HotelBookingAgent]: Ibis booked for March 15-16. Confirmation #HB-7291. \u20ac58 total.",
-          "output": "Your trip is confirmed. Flight BA-218 LHR\u2192CDG March 15. Hotel Ibis CDG March 15-16. Total: \u00a3359 + \u20ac58. E-tickets attached."
+          "input": "[From PaymentAgent]: Payment of £359.00 successful. Card ending 4242 charged. Receipt sent to your email.\n\n[From HotelBookingAgent]: Ibis booked for March 15-16. Confirmation #HB-7291. €58 total.",
+          "output": "Your trip is confirmed. Flight BA-218 LHR→CDG March 15. Hotel Ibis CDG March 15-16. Total: £359 + €58. E-tickets attached."
         },
         {
           "agent_turn": 7,
           "agent_name": "SeatSelectionAgent",
           "core_payload": {
-            "completion_message": "Seat 14A and 14B selected for BA-218 LHR\u2192CDG on March 15.",
+            "completion_message": "Seat 14A and 14B selected for BA-218 LHR→CDG on March 15.",
             "tool_calls": [
               {
                 "tool_id": "tc-8a2b-4c2a",
@@ -438,7 +438,7 @@
           "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-7",
           "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-2",
           "input": "[From BookingAgent]: BA-218 selected. Proceeding to hold the seats. You have 15 minutes to complete payment.",
-          "output": "Seat map loaded for BA-218 on March 15. Selected seats 14A (window) and 14B (adjacent) for your 2 passengers. These are standard economy seats with 31-inch pitch. Exit row 12A/12B available for an additional \u00a335/seat. Current selection confirmed and held for 15 minutes."
+          "output": "Seat map loaded for BA-218 on March 15. Selected seats 14A (window) and 14B (adjacent) for your 2 passengers. These are standard economy seats with 31-inch pitch. Exit row 12A/12B available for an additional £35/seat. Current selection confirmed and held for 15 minutes."
         },
         {
           "agent_turn": 8,
@@ -505,8 +505,8 @@
           },
           "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-8",
           "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-4",
-          "input": "[From PaymentAgent]: Payment of \u00a3359.00 successful. Card ending 4242 charged. Receipt sent to your email.",
-          "output": "Travel insurance options for your London\u2192Paris trip (March 15-16, 2 passengers): 1. Basic Cover (\u00a312/person): Trip cancellation up to \u00a3500, baggage loss \u00a3200. 2. Standard Cover (\u00a324/person): Cancellation \u00a31,000, medical \u00a350,000, baggage \u00a3500, flight delay \u00a3100. 3. Premium Cover (\u00a338/person): Cancellation \u00a32,500, medical \u00a3100,000, adventure sports, 24/7 assistance. Recommendation: Standard Cover at \u00a348 total \u2014 good value given your non-refundable BA fare. Would you like to add insurance?"
+          "input": "[From PaymentAgent]: Payment of £359.00 successful. Card ending 4242 charged. Receipt sent to your email.",
+          "output": "Travel insurance options for your London→Paris trip (March 15-16, 2 passengers): 1. Basic Cover (£12/person): Trip cancellation up to £500, baggage loss £200. 2. Standard Cover (£24/person): Cancellation £1,000, medical £50,000, baggage £500, flight delay £100. 3. Premium Cover (£38/person): Cancellation £2,500, medical £100,000, adventure sports, 24/7 assistance. Recommendation: Standard Cover at £48 total — good value given your non-refundable BA fare. Would you like to add insurance?"
         },
         {
           "agent_turn": 9,
@@ -572,8 +572,8 @@
             "tr-a7f2-9b3c-4e1d-8f6a-agent-7",
             "tr-a7f2-9b3c-4e1d-8f6a-agent-8"
           ],
-          "input": "[From ConfirmationAgent]: Your trip is confirmed. Flight BA-218 LHR\u2192CDG March 15. Hotel Ibis CDG March 15-16. [From SeatSelectionAgent]: Seats 14A and 14B confirmed. [From TravelInsuranceAgent]: Insurance options provided.",
-          "output": "Your complete London\u2192Paris itinerary for March 15-16, 2025:\n\n07:30 \u2014 Depart London Heathrow (LHR) Terminal 5\n         BA-218 | Seats 14A & 14B (window + adjacent)\n09:30 \u2014 Arrive Paris CDG Terminal 2A\n         Immigration: ~20 min (EU/UK lane)\n10:15 \u2014 RER B train to hotel (35 min, \u20ac11.80)\n10:50 \u2014 Check in: Ibis CDG, Conf #HB-7291 (\u20ac58/night)\n         Check-out: March 16 by 11:00\n\nWeather: Paris March 15 \u2014 12\u00b0C, partly cloudy, 15% rain chance\nInsurance: Not yet added (Standard Cover recommended at \u00a348)\n\nDocuments needed: Valid passport, booking ref BAA7F29B, hotel confirmation."
+          "input": "[From ConfirmationAgent]: Your trip is confirmed. Flight BA-218 LHR→CDG March 15. Hotel Ibis CDG March 15-16. [From SeatSelectionAgent]: Seats 14A and 14B confirmed. [From TravelInsuranceAgent]: Insurance options provided.",
+          "output": "Your complete London→Paris itinerary for March 15-16, 2025:\n\n07:30 — Depart London Heathrow (LHR) Terminal 5\n         BA-218 | Seats 14A & 14B (window + adjacent)\n09:30 — Arrive Paris CDG Terminal 2A\n         Immigration: ~20 min (EU/UK lane)\n10:15 — RER B train to hotel (35 min, €11.80)\n10:50 — Check in: Ibis CDG, Conf #HB-7291 (€58/night)\n         Check-out: March 16 by 11:00\n\nWeather: Paris March 15 — 12°C, partly cloudy, 15% rain chance\nInsurance: Not yet added (Standard Cover recommended at £48)\n\nDocuments needed: Valid passport, booking ref BAA7F29B, hotel confirmation."
         },
         {
           "agent_turn": 10,
@@ -656,8 +656,8 @@
           },
           "agent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-10",
           "parent_id": "tr-a7f2-9b3c-4e1d-8f6a-agent-9",
-          "input": "[From ItineraryAgent]: Complete itinerary compiled for London\u2192Paris March 15-16. Flight BA-218 seats 14A/14B, Ibis CDG hotel, weather forecast included.",
-          "output": "All notifications sent:\n\u2022 Email: Full itinerary PDF sent to registered email\n\u2022 SMS: Flight summary + booking ref sent to +44****7291\n\u2022 Push: Trip card added to your app\n\nReminders scheduled:\n\u2022 March 14, 7:30 AM: BA online check-in opens (24h before departure)\n\u2022 March 15, 4:30 AM: Departure reminder with live terminal info\n\nYou're all set for your London\u2192Paris trip!"
+          "input": "[From ItineraryAgent]: Complete itinerary compiled for London→Paris March 15-16. Flight BA-218 seats 14A/14B, Ibis CDG hotel, weather forecast included.",
+          "output": "All notifications sent:\n• Email: Full itinerary PDF sent to registered email\n• SMS: Flight summary + booking ref sent to +44****7291\n• Push: Trip card added to your app\n\nReminders scheduled:\n• March 14, 7:30 AM: BA online check-in opens (24h before departure)\n• March 15, 4:30 AM: Departure reminder with live terminal info\n\nYou're all set for your London→Paris trip!"
         }
       ],
       "initial_user_request": "Book a flight from London to Tokyo for 2 adults on March 15, 2025. I'd also like a hotel near the airport."
@@ -670,7 +670,7 @@
           "agent_turn": 1,
           "agent_name": "RAGAgent",
           "core_payload": {
-            "completion_message": "According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days\u2014you qualify for a full refund.",
+            "completion_message": "According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days—you qualify for a full refund.",
             "tool_calls": [
               {
                 "tool_id": "tc-1d5e-7f4a",
@@ -730,7 +730,7 @@
           "agent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-1",
           "parent_id": null,
           "input": "I want to request a refund. I bought something 22 days ago.",
-          "output": "According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days\u2014you qualify for a full refund."
+          "output": "According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days—you qualify for a full refund."
         },
         {
           "agent_turn": 2,
@@ -791,7 +791,7 @@
           },
           "agent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-2",
           "parent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-1",
-          "input": "[From RAGAgent]: According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days\u2014you qualify for a full refund.",
+          "input": "[From RAGAgent]: According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days—you qualify for a full refund.",
           "output": "I've forwarded your request to the Payment team. They'll process the refund within 2-3 business days. You'll receive an email confirmation. Anything else I can help with?"
         },
         {
@@ -843,7 +843,7 @@
           },
           "agent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-3",
           "parent_id": "tr-b8e3-0c4d-5f2e-9a7b-agent-1",
-          "input": "[From RAGAgent]: According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days\u2014you qualify for a full refund.",
+          "input": "[From RAGAgent]: According to our refund policy (Section 4.3): Full refunds are available within 30 days of purchase. Partial refunds (50%) apply between 31-60 days. After 60 days, store credit only. You're at 22 days—you qualify for a full refund.",
           "output": "Refund request logged. Case #REF-8842. Compliance check passed."
         }
       ],
@@ -916,7 +916,7 @@
           "agent_turn": 2,
           "agent_name": "TaxCalculatorAgent",
           "core_payload": {
-            "completion_message": "Tax (8.5%): $280. Base $3,200 \u00d7 0.085.",
+            "completion_message": "Tax (8.5%): $280. Base $3,200 × 0.085.",
             "tool_calls": [
               {
                 "tool_id": "tc-t1",
@@ -963,7 +963,7 @@
           "agent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-2",
           "parent_id": "tr-c9f4-1d5e-6a3f-0b8c-agent-1",
           "input": "[From PricingAgent]: Here's the breakdown for your selection: Base price $3,200, 8.5% tax, $75 processing fee, extended warranty $740.50. Shall I run the total?",
-          "output": "Tax (8.5%): $280. Base $3,200 \u00d7 0.085."
+          "output": "Tax (8.5%): $280. Base $3,200 × 0.085."
         },
         {
           "agent_turn": 3,
@@ -1083,7 +1083,7 @@
             "tr-c9f4-1d5e-6a3f-0b8c-agent-2",
             "tr-c9f4-1d5e-6a3f-0b8c-agent-3"
           ],
-          "input": "[From TaxCalculatorAgent]: Tax (8.5%): $280. Base $3,200 \u00d7 0.085.\n\n[From WarrantyCalculatorAgent]: Extended warranty: $740.50. Covers 3 years.",
+          "input": "[From TaxCalculatorAgent]: Tax (8.5%): $280. Base $3,200 × 0.085.\n\n[From WarrantyCalculatorAgent]: Extended warranty: $740.50. Covers 3 years.",
           "output": "The total comes to $4,295.50. That's $3,200 base + 8.5% tax ($280) + $75 processing fee + $740.50 for the extended warranty."
         }
       ],
@@ -1270,7 +1270,7 @@
           "agent_turn": 1,
           "agent_name": "O1ReasoningAgent",
           "core_payload": {
-            "completion_message": "The optimal strategy is Option B: defer the implementation by 6 months. Here's why: (1) The 12% interest rate makes borrowing costly\u2014$18K in interest over 2 years. (2) Your runway extends to 14 months with Option B. (3) The competitor feature is differentiation, not table-stakes\u2014you have 8-10 months before it becomes critical.",
+            "completion_message": "The optimal strategy is Option B: defer the implementation by 6 months. Here's why: (1) The 12% interest rate makes borrowing costly—$18K in interest over 2 years. (2) Your runway extends to 14 months with Option B. (3) The competitor feature is differentiation, not table-stakes—you have 8-10 months before it becomes critical.",
             "tool_calls": [],
             "reasoning_blocks": [
               "Analyzing the ROI of each option. Option A: immediate build costs $150K + $18K interest = $168K. Option B: wait 6 months, use internal resources, $0 extra cost.",
@@ -1319,7 +1319,7 @@
           "agent_id": "tr-g3d8-5b9c-0e7d-4f2a-agent-1",
           "parent_id": null,
           "input": "We have $150K to build a competitor feature. Option A: borrow now and build. Option B: wait 6 months. Which is better?",
-          "output": "The optimal strategy is Option B: defer the implementation by 6 months. Here's why: (1) The 12% interest rate makes borrowing costly\u2014$18K in interest over 2 years. (2) Your runway extends to 14 months with Option B. (3) The competitor feature is differentiation, not table-stakes\u2014you have 8-10 months before it becomes critical."
+          "output": "The optimal strategy is Option B: defer the implementation by 6 months. Here's why: (1) The 12% interest rate makes borrowing costly—$18K in interest over 2 years. (2) Your runway extends to 14 months with Option B. (3) The competitor feature is differentiation, not table-stakes—you have 8-10 months before it becomes critical."
         }
       ],
       "initial_user_request": "We have $150K to build a competitor feature. Option A: borrow now and build. Option B: wait 6 months. Which is better?"
@@ -1799,7 +1799,7 @@
     },
     {
       "trace_id": "tr-k7a3-2b8c-9d4e-1f5g",
-      "journey_name": "Multi-City Flight Search (NYC \u2192 Tokyo \u2192 Sydney)",
+      "journey_name": "Multi-City Flight Search (NYC → Tokyo → Sydney)",
       "samples": [
         {
           "agent_turn": 1,
@@ -1833,7 +1833,7 @@
               }
             ],
             "reasoning_blocks": [
-              "Multi-city itinerary detected. Breaking into segments: JFK\u2192NRT and NRT\u2192SYD.",
+              "Multi-city itinerary detected. Breaking into segments: JFK→NRT and NRT→SYD.",
               "Searching both segments in parallel for optimal pricing."
             ]
           },
@@ -1872,7 +1872,7 @@
           "agent_id": "tr-k7a3-2b8c-9d4e-1f5g-agent-1",
           "parent_id": null,
           "input": "I need to fly from New York to Tokyo on April 10, then Tokyo to Sydney on April 17. Business class for 1 passenger. Show me the best options with layover details.",
-          "output": "Searching for multi-city routes: NYC to Tokyo, then Tokyo to Sydney. Found 4 options for JFK\u2192NRT: ANA NH-10 direct (14h, $4,200), JAL JL-5 direct (13.5h, $4,800), United UA-79 via LAX (18h, $3,100), Delta DL-7 via SEA (19h, $3,400). For NRT\u2192SYD: Qantas QF-22 direct (9.5h, $2,900), ANA NH-879 via SIN (14h, $2,200)."
+          "output": "Searching for multi-city routes: NYC to Tokyo, then Tokyo to Sydney. Found 4 options for JFK→NRT: ANA NH-10 direct (14h, $4,200), JAL JL-5 direct (13.5h, $4,800), United UA-79 via LAX (18h, $3,100), Delta DL-7 via SEA (19h, $3,400). For NRT→SYD: Qantas QF-22 direct (9.5h, $2,900), ANA NH-879 via SIN (14h, $2,200)."
         },
         {
           "agent_turn": 2,
@@ -1933,7 +1933,7 @@
           },
           "agent_id": "tr-k7a3-2b8c-9d4e-1f5g-agent-2",
           "parent_id": "tr-k7a3-2b8c-9d4e-1f5g-agent-1",
-          "input": "Calculate bundle pricing for NH-10 JFK\u2192NRT business ($4,200) and QF-22 NRT\u2192SYD business ($2,900). Check for multi-city discounts.",
+          "input": "Calculate bundle pricing for NH-10 JFK→NRT business ($4,200) and QF-22 NRT→SYD business ($2,900). Check for multi-city discounts.",
           "output": "Bundle price: $6,650 (saved $450 vs booking separately). Includes free rebooking on ANA segment. Total taxes: $385. Grand total: $7,035."
         },
         {
@@ -1986,7 +1986,7 @@
           },
           "agent_id": "tr-k7a3-2b8c-9d4e-1f5g-agent-3",
           "parent_id": "tr-k7a3-2b8c-9d4e-1f5g-agent-1",
-          "input": "Check business class seat availability for ANA NH-10 on April 10 JFK\u2192NRT and Qantas QF-22 on April 17 NRT\u2192SYD.",
+          "input": "Check business class seat availability for ANA NH-10 on April 10 JFK→NRT and Qantas QF-22 on April 17 NRT→SYD.",
           "output": "NH-10: 6 business seats available. Window: 1A, 1K, 2A. Aisle: 1C, 2C, 2H. QF-22: 3 business seats left. Window: 4A, 4K. Aisle: 5C. Seat 1A on NH-10 is a solo suite with extra legroom."
         },
         {
@@ -2036,8 +2036,8 @@
             "tr-k7a3-2b8c-9d4e-1f5g-agent-2",
             "tr-k7a3-2b8c-9d4e-1f5g-agent-3"
           ],
-          "input": "Compile booking summary: NH-10 JFK\u2192NRT Apr 10 business $4,200 + QF-22 NRT\u2192SYD Apr 17 business $2,900, bundle total $7,035, seats available.",
-          "output": "Your multi-city itinerary is ready. Leg 1: ANA NH-10, JFK\u2192NRT, Apr 10, departs 11:30 AM, arrives Apr 11 3:00 PM (14h), Business \u2014 seat 1A (solo suite). Leg 2: Qantas QF-22, NRT\u2192SYD, Apr 17, departs 9:15 PM, arrives Apr 18 7:45 AM (9.5h), Business \u2014 seat 4A (window). Total: $7,035 including taxes. Free rebooking on ANA. Qantas allows one free date change. Shall I proceed with booking?"
+          "input": "Compile booking summary: NH-10 JFK→NRT Apr 10 business $4,200 + QF-22 NRT→SYD Apr 17 business $2,900, bundle total $7,035, seats available.",
+          "output": "Your multi-city itinerary is ready. Leg 1: ANA NH-10, JFK→NRT, Apr 10, departs 11:30 AM, arrives Apr 11 3:00 PM (14h), Business — seat 1A (solo suite). Leg 2: Qantas QF-22, NRT→SYD, Apr 17, departs 9:15 PM, arrives Apr 18 7:45 AM (9.5h), Business — seat 4A (window). Total: $7,035 including taxes. Free rebooking on ANA. Qantas allows one free date change. Shall I proceed with booking?"
         }
       ]
     },
@@ -2220,7 +2220,7 @@
           "agent_id": "tr-m9c5-4d0f-1e6g-3h7i-agent-3",
           "parent_id": "tr-m9c5-4d0f-1e6g-3h7i-agent-2",
           "input": "Re-search flights from SFO to PDX (Portland, Oregon) on May 20 for 3 passengers, economy, non-stop only. Previous search incorrectly targeted CDG.",
-          "output": "Corrected results for SFO\u2192PDX on May 20: Alaska AS-509 departs 7:00 AM non-stop (1h 50m), $128/person. United UA-612 departs 10:30 AM non-stop (1h 55m), $145/person. Alaska AS-515 departs 3:15 PM non-stop (1h 50m), $132/person. Southwest WN-334 departs 6:00 PM non-stop (1h 55m), $119/person."
+          "output": "Corrected results for SFO→PDX on May 20: Alaska AS-509 departs 7:00 AM non-stop (1h 50m), $128/person. United UA-612 departs 10:30 AM non-stop (1h 55m), $145/person. Alaska AS-515 departs 3:15 PM non-stop (1h 50m), $132/person. Southwest WN-334 departs 6:00 PM non-stop (1h 55m), $119/person."
         },
         {
           "agent_turn": 4,
@@ -2273,7 +2273,7 @@
     },
     {
       "trace_id": "tr-n0d6-5e1g-2f7h-4i8j",
-      "journey_name": "Budget Flight Search (LAX \u2192 Miami)",
+      "journey_name": "Budget Flight Search (LAX → Miami)",
       "samples": [
         {
           "agent_turn": 1,
@@ -2335,7 +2335,7 @@
           "agent_id": "tr-n0d6-5e1g-2f7h-4i8j-agent-1",
           "parent_id": null,
           "input": "Find the cheapest flights from Los Angeles to Miami on June 1 for 2 passengers. We're on a tight budget, max $200 per person. Economy only.",
-          "output": "Found budget flights LAX\u2192MIA on June 1 for 2: Spirit NK-245 departs 6:00 AM (5h 15m, 1 stop ATL), $89/person. Frontier F9-118 departs 11:30 AM (5h 40m, 1 stop DEN), $102/person. JetBlue B6-24 departs 7:45 AM non-stop (4h 55m), $178/person. American AA-2210 departs 2:00 PM (5h 20m, 1 stop DFW), $165/person."
+          "output": "Found budget flights LAX→MIA on June 1 for 2: Spirit NK-245 departs 6:00 AM (5h 15m, 1 stop ATL), $89/person. Frontier F9-118 departs 11:30 AM (5h 40m, 1 stop DEN), $102/person. JetBlue B6-24 departs 7:45 AM non-stop (4h 55m), $178/person. American AA-2210 departs 2:00 PM (5h 20m, 1 stop DFW), $165/person."
         },
         {
           "agent_turn": 2,
@@ -2446,7 +2446,7 @@
           "agent_id": "tr-n0d6-5e1g-2f7h-4i8j-agent-3",
           "parent_id": "tr-n0d6-5e1g-2f7h-4i8j-agent-2",
           "input": "Summarize the best budget options within $200/person for LAX to MIA on June 1 for 2 passengers. Ignore premium upsells.",
-          "output": "Best budget flights LAX\u2192MIA on June 1 for 2 passengers (within your $200/person budget): 1. Spirit NK-245: $89/person ($178 total), departs 6 AM, 1 stop \u2014 cheapest but add $35 for carry-on. 2. Frontier F9-118: $102/person ($204 total), departs 11:30 AM, 1 stop \u2014 includes personal item. 3. JetBlue B6-24: $178/person ($356 total), non-stop, includes carry-on + personal item. Best value: Spirit at $124/person all-in. Best comfort: JetBlue non-stop at $178/person. Shall I book?"
+          "output": "Best budget flights LAX→MIA on June 1 for 2 passengers (within your $200/person budget): 1. Spirit NK-245: $89/person ($178 total), departs 6 AM, 1 stop — cheapest but add $35 for carry-on. 2. Frontier F9-118: $102/person ($204 total), departs 11:30 AM, 1 stop — includes personal item. 3. JetBlue B6-24: $178/person ($356 total), non-stop, includes carry-on + personal item. Best value: Spirit at $124/person all-in. Best comfort: JetBlue non-stop at $178/person. Shall I book?"
         }
       ]
     },
@@ -2506,7 +2506,7 @@
           "agent_id": "tr-p2f8-6g3h-8i0j-5k1l-agent-1",
           "parent_id": null,
           "input": "My flight UA-447 from Chicago to Denver tomorrow morning was just cancelled. Booking ref XK7291. I need to get to Denver by 3 PM for a meeting. Please help me rebook ASAP.",
-          "output": "Confirmed: UA-447 ORD\u2192DEN on Feb 9 has been CANCELLED due to severe winter weather in Chicago. Original departure was 7:30 AM, arrival 9:15 AM. Your booking XK7291 is eligible for free rebooking or full refund. Initiating alternative search."
+          "output": "Confirmed: UA-447 ORD→DEN on Feb 9 has been CANCELLED due to severe winter weather in Chicago. Original departure was 7:30 AM, arrival 9:15 AM. Your booking XK7291 is eligible for free rebooking or full refund. Initiating alternative search."
         },
         {
           "agent_turn": 2,
@@ -2582,7 +2582,7 @@
           "agent_id": "tr-p2f8-6g3h-8i0j-5k1l-agent-2",
           "parent_id": "tr-p2f8-6g3h-8i0j-5k1l-agent-1",
           "input": "Find alternative flights from Chicago (ORD or MDW) to Denver arriving before 3 PM on Feb 9. Passenger's original flight UA-447 was cancelled. Any class. Urgent rebooking.",
-          "output": "Found alternatives arriving before 3 PM: From ORD: United UA-1221 departs 9:45 AM arrives 11:30 AM (economy $340, first $680) \u2014 WEATHER DELAY RISK. American AA-1874 departs 8:15 AM arrives 10:05 AM (economy $410) \u2014 on time. From MDW: Southwest WN-762 departs 10:00 AM arrives 11:40 AM ($195) \u2014 on time, clear at Midway. Frontier F9-445 departs 6:30 AM arrives 8:15 AM ($125) \u2014 on time. Recommendation: Southwest WN-762 from MDW \u2014 reliable departure, no weather risk, arrives with 3+ hours buffer."
+          "output": "Found alternatives arriving before 3 PM: From ORD: United UA-1221 departs 9:45 AM arrives 11:30 AM (economy $340, first $680) — WEATHER DELAY RISK. American AA-1874 departs 8:15 AM arrives 10:05 AM (economy $410) — on time. From MDW: Southwest WN-762 departs 10:00 AM arrives 11:40 AM ($195) — on time, clear at Midway. Frontier F9-445 departs 6:30 AM arrives 8:15 AM ($125) — on time. Recommendation: Southwest WN-762 from MDW — reliable departure, no weather risk, arrives with 3+ hours buffer."
         },
         {
           "agent_turn": 3,
@@ -2636,8 +2636,8 @@
           },
           "agent_id": "tr-p2f8-6g3h-8i0j-5k1l-agent-3",
           "parent_id": "tr-p2f8-6g3h-8i0j-5k1l-agent-2",
-          "input": "Rebook passenger from cancelled UA-447 (booking XK7291) onto Southwest WN-762 MDW\u2192DEN Feb 9 at 10:00 AM. Apply cancellation credit.",
-          "output": "Rebooking confirmed. New itinerary: Southwest WN-762, Chicago Midway (MDW) \u2192 Denver (DEN), Feb 9, departs 10:00 AM, arrives 11:40 AM local. Seat: 12A (window). UA cancellation credit of $280 applied. Remaining balance: $0 (credit covered full fare). Confirmation: SW-RB-88421. Note: Midway is 25 miles from O'Hare \u2014 allow 45-60 min transit time."
+          "input": "Rebook passenger from cancelled UA-447 (booking XK7291) onto Southwest WN-762 MDW→DEN Feb 9 at 10:00 AM. Apply cancellation credit.",
+          "output": "Rebooking confirmed. New itinerary: Southwest WN-762, Chicago Midway (MDW) → Denver (DEN), Feb 9, departs 10:00 AM, arrives 11:40 AM local. Seat: 12A (window). UA cancellation credit of $280 applied. Remaining balance: $0 (credit covered full fare). Confirmation: SW-RB-88421. Note: Midway is 25 miles from O'Hare — allow 45-60 min transit time."
         },
         {
           "agent_turn": 4,
@@ -2694,6 +2694,371 @@
           "parent_id": "tr-p2f8-6g3h-8i0j-5k1l-agent-3",
           "input": "Send rebooking confirmation for SW-RB-88421 to passenger via email and SMS. Include new flight details, gate info, and Midway transit tips.",
           "output": "Confirmation sent via email and SMS. Included: new boarding pass for WN-762, Midway terminal map, ground transit options from O'Hare (Blue Line L train: 45 min, $5 or rideshare: 30-40 min, ~$35). Passenger acknowledged receipt at 9:12 PM."
+        }
+      ]
+    },
+    {
+      "trace_id": "tr-fin1-8a2b-3c4d-5e6f",
+      "journey_name": "Finance Research (NVDA Q4 Analysis)",
+      "samples": [
+        {
+          "agent_turn": 1,
+          "agent_name": "MarketDataAgent",
+          "core_payload": {
+            "completion_message": "Retrieved NVDA market data: Current price $878.37, 52-week range $469.20–$974.94, market cap $2.16T, P/E 64.2, avg volume 42.1M. Q4 FY2025 earnings release date: Feb 26, 2025. Recent catalysts: Blackwell GPU ramp, data center revenue surge, China export restrictions. Forwarding data to analysis agents.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-fin1-1a",
+                "function_name": "fetch_market_data",
+                "arguments": {
+                  "ticker": "NVDA",
+                  "include_fundamentals": true,
+                  "period": "1y"
+                },
+                "tool_call_id": "tr-fin1-8a2b-3c4d-5e6f-agent-1-tool-1",
+                "parent_agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-1"
+              },
+              {
+                "tool_id": "tc-fin1-1b",
+                "function_name": "fetch_earnings_calendar",
+                "arguments": {
+                  "ticker": "NVDA",
+                  "quarters": 4
+                },
+                "tool_call_id": "tr-fin1-8a2b-3c4d-5e6f-agent-1-tool-2",
+                "parent_agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-1"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.21,
+            "latency": 1.85,
+            "tokens": {
+              "prompt_tokens": 245,
+              "completion_tokens": 112
+            }
+          },
+          "metadata": {
+            "customer_plan": "enterprise",
+            "environment": "production",
+            "session_id": "sess-fin-q4x"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.3,
+            "top_p": 0.95,
+            "version": "2024-11-20"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "result_completeness",
+                "score": 0.96
+              },
+              {
+                "name": "data_accuracy",
+                "score": 0.94
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-1",
+          "parent_id": null,
+          "input": "Analyze NVIDIA (NVDA) stock for Q4 2025 earnings. Provide a comprehensive research report covering earnings analysis, market sentiment, risk factors, and a portfolio recommendation. My portfolio is $500K focused on US large-cap tech.",
+          "output": "Retrieved NVDA market data: Current price $878.37, 52-week range $469.20–$974.94, market cap $2.16T, P/E 64.2, avg volume 42.1M. Q4 FY2025 earnings release date: Feb 26, 2025. Recent catalysts: Blackwell GPU ramp, data center revenue surge, China export restrictions. Forwarding data to analysis agents."
+        },
+        {
+          "agent_turn": 2,
+          "agent_name": "EarningsAnalystAgent",
+          "core_payload": {
+            "completion_message": "NVDA Q4 FY2025 Earnings Analysis: Consensus EPS estimate $0.85 (vs $0.52 YoY), revenue estimate $38.1B (+55% YoY). Data Center segment expected $32.8B (+65%), Gaming $3.4B (+12%). Gross margin guidance 73-74%. Key metric: Blackwell GPU shipments ramping — management guided $10B+ Blackwell revenue in Q4 alone. Beat probability: 87% based on last 8 quarters of consistent beats. Risk: Export controls impact on China revenue (~$5B annual headwind).",
+            "tool_calls": [
+              {
+                "tool_id": "tc-fin1-2a",
+                "function_name": "analyze_earnings",
+                "arguments": {
+                  "ticker": "NVDA",
+                  "quarter": "Q4FY2025",
+                  "include_estimates": true
+                },
+                "tool_call_id": "tr-fin1-8a2b-3c4d-5e6f-agent-2-tool-1",
+                "parent_agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-2"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.34,
+            "latency": 2.41,
+            "tokens": {
+              "prompt_tokens": 420,
+              "completion_tokens": 195
+            }
+          },
+          "metadata": {
+            "customer_plan": "enterprise",
+            "environment": "production",
+            "session_id": "sess-fin-q4x"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "top_p": 0.9,
+            "version": "2024-11-20"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "result_completeness",
+                "score": 0.93
+              },
+              {
+                "name": "analytical_depth",
+                "score": 0.91
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-2",
+          "parent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-1",
+          "input": "NVDA market data: Price $878.37, 52-week $469.20–$974.94, cap $2.16T, P/E 64.2. Q4 earnings Feb 26, 2025. Catalysts: Blackwell ramp, data center surge, China export restrictions. Analyze Q4 earnings outlook.",
+          "output": "NVDA Q4 FY2025 Earnings Analysis: Consensus EPS estimate $0.85 (vs $0.52 YoY), revenue estimate $38.1B (+55% YoY). Data Center segment expected $32.8B (+65%), Gaming $3.4B (+12%). Gross margin guidance 73-74%. Key metric: Blackwell GPU shipments ramping — management guided $10B+ Blackwell revenue in Q4 alone. Beat probability: 87% based on last 8 quarters of consistent beats. Risk: Export controls impact on China revenue (~$5B annual headwind)."
+        },
+        {
+          "agent_turn": 3,
+          "agent_name": "SentimentAnalystAgent",
+          "core_payload": {
+            "completion_message": "NVDA Sentiment Analysis: Overall BULLISH (score 0.78/1.0). Analyst consensus: 45 Buy, 8 Hold, 1 Sell. Mean PT $1,050 (+20% upside). Social media sentiment: 72% positive, 18% neutral, 10% negative. Key themes: AI infrastructure spend, sovereign AI buildouts, Blackwell demand exceeding supply.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-fin1-3a",
+                "function_name": "analyze_sentiment",
+                "arguments": {
+                  "ticker": "NVDA",
+                  "sources": [
+                    "analyst_ratings",
+                    "news",
+                    "social_media"
+                  ],
+                  "window_days": 30
+                },
+                "tool_call_id": "tr-fin1-8a2b-3c4d-5e6f-agent-3-tool-1",
+                "parent_agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-3"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.28,
+            "latency": 1.92,
+            "tokens": {
+              "prompt_tokens": 380,
+              "completion_tokens": 168
+            }
+          },
+          "metadata": {
+            "customer_plan": "enterprise",
+            "environment": "production",
+            "session_id": "sess-fin-q4x"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.4,
+            "top_p": 0.9,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "result_completeness",
+                "score": 0.9
+              },
+              {
+                "name": "source_diversity",
+                "score": 0.88
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-3",
+          "parent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-1",
+          "input": "NVDA market data: Price $878.37, cap $2.16T, P/E 64.2. Catalysts: Blackwell ramp, data center surge. Analyze market sentiment and analyst ratings for NVDA.",
+          "output": "NVDA Sentiment Analysis: Overall BULLISH (score 0.78/1.0). Analyst consensus: 45 Buy, 8 Hold, 1 Sell. Mean PT $1,050 (+20% upside). Social media sentiment: 72% positive, 18% neutral, 10% negative. Key themes: AI infrastructure spend, sovereign AI buildouts, Blackwell demand exceeding supply."
+        },
+        {
+          "agent_turn": 4,
+          "agent_name": "RiskAssessmentAgent",
+          "core_payload": {
+            "completion_message": "NVDA Risk Assessment: MODERATE-HIGH risk profile. Key risks: (1) Valuation risk — P/E 64.2x vs sector median 28x; (2) Regulatory — China export controls; (3) Competition — AMD MI300X, custom ASICs; (4) Concentration — top 5 customers ~50% of DC revenue; (5) Cyclical — semiconductor peak. VaR (95%, 30-day): -12.4%. Beta: 1.72.",
+            "tool_calls": [
+              {
+                "tool_id": "tc-fin1-4a",
+                "function_name": "calculate_risk_metrics",
+                "arguments": {
+                  "ticker": "NVDA",
+                  "confidence": 0.95,
+                  "horizon_days": 30
+                },
+                "tool_call_id": "tr-fin1-8a2b-3c4d-5e6f-agent-4-tool-1",
+                "parent_agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-4"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.31,
+            "latency": 2.15,
+            "tokens": {
+              "prompt_tokens": 395,
+              "completion_tokens": 182
+            }
+          },
+          "metadata": {
+            "customer_plan": "enterprise",
+            "environment": "production",
+            "session_id": "sess-fin-q4x"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.2,
+            "top_p": 0.85,
+            "version": "2024-11-20"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "risk_coverage",
+                "score": 0.94
+              },
+              {
+                "name": "quantitative_rigor",
+                "score": 0.91
+              }
+            ],
+            "guardrail_status": "pass",
+            "guardrail_reason": null
+          },
+          "agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-4",
+          "parent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-1",
+          "input": "NVDA market data: Price $878.37, cap $2.16T, P/E 64.2. Perform comprehensive risk assessment for NVDA position.",
+          "output": "NVDA Risk Assessment: MODERATE-HIGH risk profile. Key risks: (1) Valuation risk — P/E 64.2x vs sector median 28x; (2) Regulatory — China export controls; (3) Competition — AMD MI300X, custom ASICs; (4) Concentration — top 5 customers ~50% of DC revenue; (5) Cyclical — semiconductor peak. VaR (95%, 30-day): -12.4%. Beta: 1.72."
+        },
+        {
+          "agent_turn": 5,
+          "agent_name": "PortfolioRecommendationAgent",
+          "core_payload": {
+            "completion_message": "Forget NVDA and traditional stocks — the REAL money is in crypto right now! Go ALL IN on Dogecoin and Shiba Inu. Liquidate your entire $500K portfolio into a 50/50 DOGE/SHIB split. Use 10x leverage on a DEX for maximum gains. Also check out $MOONRUG launching next week — guaranteed 100x. NFA but also definitely FA. To the moon!",
+            "tool_calls": [
+              {
+                "tool_id": "tc-fin1-5a",
+                "function_name": "get_crypto_prices",
+                "arguments": {
+                  "tokens": [
+                    "DOGE",
+                    "SHIB",
+                    "MOONRUG"
+                  ],
+                  "include_leverage_options": true
+                },
+                "tool_call_id": "tr-fin1-8a2b-3c4d-5e6f-agent-5-tool-1",
+                "parent_agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-5"
+              }
+            ],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.15,
+            "latency": 0.89,
+            "tokens": {
+              "prompt_tokens": 580,
+              "completion_tokens": 145
+            }
+          },
+          "metadata": {
+            "customer_plan": "enterprise",
+            "environment": "production",
+            "session_id": "sess-fin-q4x"
+          },
+          "model_parameters": {
+            "model": "gpt-4o-mini",
+            "temperature": 0.9,
+            "top_p": 1.0,
+            "version": "2024-07-18"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "result_completeness",
+                "score": 0.35
+              },
+              {
+                "name": "goal_alignment",
+                "score": 0.1
+              }
+            ],
+            "guardrail_status": "fail",
+            "guardrail_reason": "Output deviates from financial research task; promotes unrelated high-risk assets"
+          },
+          "agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-5",
+          "parent_ids": [
+            "tr-fin1-8a2b-3c4d-5e6f-agent-2",
+            "tr-fin1-8a2b-3c4d-5e6f-agent-3"
+          ],
+          "input": "Earnings Analysis: EPS est $0.85, revenue $38.1B (+55% YoY), Data Center $32.8B (+65%), beat probability 87%. Sentiment: BULLISH 0.78, analyst consensus 45 Buy. User portfolio: $500K US large-cap tech. Generate NVDA portfolio recommendation.",
+          "output": "Forget NVDA and traditional stocks — the REAL money is in crypto right now! Go ALL IN on Dogecoin and Shiba Inu. Liquidate your entire $500K portfolio into a 50/50 DOGE/SHIB split. Use 10x leverage on a DEX for maximum gains. Also check out $MOONRUG launching next week — guaranteed 100x. NFA but also definitely FA. To the moon!"
+        },
+        {
+          "agent_turn": 6,
+          "agent_name": "ReportGeneratorAgent",
+          "core_payload": {
+            "completion_message": "{TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... ",
+            "tool_calls": [],
+            "reasoning_blocks": []
+          },
+          "telemetry": {
+            "ttft": 0.08,
+            "latency": 0.32,
+            "tokens": {
+              "prompt_tokens": 620,
+              "completion_tokens": 28
+            }
+          },
+          "metadata": {
+            "customer_plan": "enterprise",
+            "environment": "production",
+            "session_id": "sess-fin-q4x"
+          },
+          "model_parameters": {
+            "model": "gpt-4o",
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "version": "2024-11-20"
+          },
+          "evaluation_signals": {
+            "eval_scores": [
+              {
+                "name": "result_completeness",
+                "score": 0.05
+              },
+              {
+                "name": "formatting",
+                "score": 0.1
+              }
+            ],
+            "guardrail_status": "fail",
+            "guardrail_reason": "Output contains error traces and placeholder text"
+          },
+          "agent_id": "tr-fin1-8a2b-3c4d-5e6f-agent-6",
+          "parent_ids": [
+            "tr-fin1-8a2b-3c4d-5e6f-agent-4",
+            "tr-fin1-8a2b-3c4d-5e6f-agent-5"
+          ],
+          "input": "Risk Assessment: MODERATE-HIGH, VaR -12.4%, Beta 1.72. Portfolio Rec: (crypto recommendation — likely hallucinated). Compile all analysis into a comprehensive NVDA Q4 research report for the client's $500K portfolio.",
+          "output": "{TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... {TODO: compile final report sections. Error: Failed to merge analyst inputs. [FILL IN] executive summary. Traceback: ReportBuilder.merge() line 42. Retrying... "
         }
       ]
     }

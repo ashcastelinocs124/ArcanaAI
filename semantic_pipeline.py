@@ -460,6 +460,480 @@ Follow your answer with a brief one-sentence explanation."""
         return sum(1 for r in self._results if r["verification_status"] == self.STATUS_VERIFIED_RED)
 
 
+class SentinelAnalyzer:
+    """
+    Tier 1: Zero-LLM regex-based checks for obvious agent output failures.
+    Catches empty outputs, placeholders, malformed JSON, error patterns, etc.
+    Score = (checks passed / total checks). Agents scoring < 0.5 escalate to Tier 2.
+    """
+
+    MAX_OUTPUT_LENGTH = 10000
+    MIN_OUTPUT_LENGTH = 5
+    MIN_INPUT_FOR_SHORT_CHECK = 20
+    REPEAT_BLOCK_MIN = 50
+    REPEAT_THRESHOLD = 0.6
+
+    def __init__(self, dag: AgentDAG):
+        self.dag = dag
+
+    def _check_empty_output(self, node: dict) -> dict:
+        output = node.get("output") or ""
+        passed = bool(output and output.strip())
+        return {"name": "empty_output", "passed": passed, "detail": "Output is empty or whitespace-only" if not passed else "Output is non-empty"}
+
+    def _check_placeholder_text(self, node: dict) -> dict:
+        import re
+        output = node.get("output") or ""
+        pattern = r'\b(TODO|FIXME|lorem ipsum|placeholder|TBD|\[FILL.?IN\]|insert .+ here)\b'
+        match = re.search(pattern, output, re.IGNORECASE)
+        passed = match is None
+        return {"name": "placeholder_text", "passed": passed, "detail": f"Placeholder detected: '{match.group()}'" if match else "No placeholder text found"}
+
+    def _check_excessive_length(self, node: dict) -> dict:
+        output = node.get("output") or ""
+        passed = len(output) <= self.MAX_OUTPUT_LENGTH
+        return {"name": "excessive_length", "passed": passed, "detail": f"Output length {len(output)} exceeds {self.MAX_OUTPUT_LENGTH}" if not passed else f"Output length {len(output)} is acceptable"}
+
+    def _check_too_short(self, node: dict) -> dict:
+        output = node.get("output") or ""
+        input_text = node.get("input") or ""
+        if len(input_text) <= self.MIN_INPUT_FOR_SHORT_CHECK:
+            return {"name": "too_short", "passed": True, "detail": "Input too short to require substantial output"}
+        passed = len(output.strip()) >= self.MIN_OUTPUT_LENGTH
+        return {"name": "too_short", "passed": passed, "detail": f"Output only {len(output.strip())} chars for substantial input" if not passed else "Output length is sufficient"}
+
+    def _check_repeated_blocks(self, node: dict) -> dict:
+        output = node.get("output") or ""
+        if len(output) < self.REPEAT_BLOCK_MIN * 2:
+            return {"name": "repeated_blocks", "passed": True, "detail": "Output too short for repetition check"}
+        block_size = self.REPEAT_BLOCK_MIN
+        blocks = [output[i:i+block_size] for i in range(0, len(output) - block_size + 1, block_size)]
+        if not blocks:
+            return {"name": "repeated_blocks", "passed": True, "detail": "No blocks to check"}
+        from collections import Counter
+        counts = Counter(blocks)
+        most_common_count = counts.most_common(1)[0][1]
+        repeat_ratio = (most_common_count * block_size) / len(output) if len(output) > 0 else 0
+        passed = repeat_ratio < self.REPEAT_THRESHOLD
+        return {"name": "repeated_blocks", "passed": passed, "detail": f"Repeated content covers {repeat_ratio:.0%} of output" if not passed else "No excessive repetition detected"}
+
+    def _check_malformed_json(self, node: dict) -> dict:
+        output = (node.get("output", "") or "").strip()
+        if not output or (not output.startswith("{") and not output.startswith("[")):
+            return {"name": "malformed_json", "passed": True, "detail": "Output is not JSON-like"}
+        try:
+            json.loads(output)
+            return {"name": "malformed_json", "passed": True, "detail": "Valid JSON output"}
+        except (json.JSONDecodeError, ValueError):
+            return {"name": "malformed_json", "passed": False, "detail": "Output starts with {/[ but is not valid JSON"}
+
+    def _check_error_patterns(self, node: dict) -> dict:
+        import re
+        output = node.get("output") or ""
+        patterns = [
+            r'\bError:\s',
+            r'\bTraceback\b',
+            r'\b500\s+Internal\b',
+            r'\brate\s+limit\b',
+            r'\bException\b',
+            r'\bFailed to\b',
+            r'\bconnection refused\b',
+        ]
+        for p in patterns:
+            match = re.search(p, output, re.IGNORECASE)
+            if match:
+                return {"name": "error_patterns", "passed": False, "detail": f"Error pattern detected: '{match.group()}'"}
+        return {"name": "error_patterns", "passed": True, "detail": "No error patterns found"}
+
+    def analyze(self) -> dict[str, dict]:
+        nodes = self.dag.get_nodes()
+        results = {}
+        checks_fns = [
+            self._check_empty_output,
+            self._check_placeholder_text,
+            self._check_excessive_length,
+            self._check_too_short,
+            self._check_repeated_blocks,
+            self._check_malformed_json,
+            self._check_error_patterns,
+        ]
+        for agent_id, node in nodes.items():
+            checks = [fn(node) for fn in checks_fns]
+            passed_count = sum(1 for c in checks if c["passed"])
+            score = passed_count / len(checks) if checks else 1.0
+            fail_reasons = [c["detail"] for c in checks if not c["passed"]]
+            results[agent_id] = {
+                "status": "sentinel_pass" if score >= 0.5 else "sentinel_fail",
+                "score": round(score, 3),
+                "checks": checks,
+                "fail_reasons": fail_reasons,
+            }
+        return results
+
+
+class GlobalRulesJudge:
+    """
+    Tier 2: Single LLM call generates global rules, then applies them deterministically.
+    Only evaluates agents escalated from Tier 1.
+    """
+
+    def __init__(self, dag: AgentDAG, user_goal: str, model: str = "gpt-4o-mini", score_threshold: float = 0.6):
+        self.dag = dag
+        self.user_goal = user_goal
+        self.model = model
+        self.score_threshold = score_threshold
+        self._rules: list[dict] | None = None
+
+    def _build_context_prompt(self) -> str:
+        nodes = self.dag.get_nodes()
+        agent_summaries = []
+        for agent_id, node in nodes.items():
+            name = node.get("agent_name", agent_id)
+            inp = _truncate(node.get("input", ""), 200)
+            out = _truncate(node.get("output", ""), 200)
+            tools = node.get("core_payload", {}).get("tool_calls", [])
+            tool_names = [tc.get("function_name", "?") for tc in tools[:3]]
+            tool_str = f", tools: {', '.join(tool_names)}" if tool_names else ""
+            agent_summaries.append(f"- {name} (id: {agent_id}): input='{inp}', output='{out}'{tool_str}")
+
+        return f"""You are analyzing a multi-agent system. Given the user's goal and agent information below, generate 5-8 quality rules that all agents should follow.
+
+User goal: {self.user_goal}
+
+Agents in the system:
+{chr(10).join(agent_summaries)}
+
+Generate rules as a JSON array. Each rule must have:
+- "description": what the rule checks
+- "check_type": one of "output_contains", "output_not_contains", "output_relevance", "output_length", "tone_check"
+- "parameters": dict with type-specific params (e.g. "terms" for contains, "min_words" for length, "negative_terms" for tone_check)
+
+Example:
+[
+  {{"description": "Output should reference the user's destination", "check_type": "output_relevance", "parameters": {{"terms": ["flight", "booking", "travel"]}}}},
+  {{"description": "Output should not contain error messages", "check_type": "output_not_contains", "parameters": {{"terms": ["error", "failed", "exception"]}}}}
+]
+
+Return ONLY the JSON array, no other text."""
+
+    def _generate_rules(self) -> list[dict]:
+        if self._rules is not None:
+            return self._rules
+        import re
+        prompt = self._build_context_prompt()
+        response = _call_llm(prompt, self.model)
+        try:
+            match = re.search(r'\[.*\]', response, re.DOTALL)
+            if match:
+                self._rules = json.loads(match.group())
+            else:
+                self._rules = []
+        except (json.JSONDecodeError, ValueError):
+            self._rules = []
+        return self._rules
+
+    def _evaluate_agent_against_rules(self, node: dict, rules: list[dict]) -> dict:
+        output = (node.get("output", "") or "").lower()
+        output_words = output.split()
+        passed = 0
+        total = len(rules)
+        rule_results = []
+
+        for rule in rules:
+            check_type = rule.get("check_type", "")
+            params = rule.get("parameters", {})
+            result = {"rule": rule.get("description", ""), "check_type": check_type, "passed": False}
+
+            if check_type == "output_contains":
+                terms = params.get("terms", [])
+                found = any(t.lower() in output for t in terms)
+                result["passed"] = found
+            elif check_type == "output_not_contains":
+                terms = params.get("terms", [])
+                found_bad = any(t.lower() in output for t in terms)
+                result["passed"] = not found_bad
+            elif check_type == "output_relevance":
+                terms = params.get("terms", [])
+                if terms:
+                    overlap = sum(1 for t in terms if t.lower() in output)
+                    result["passed"] = (overlap / len(terms)) >= 0.3
+                else:
+                    result["passed"] = True
+            elif check_type == "output_length":
+                min_words = params.get("min_words", 5)
+                result["passed"] = len(output_words) >= min_words
+            elif check_type == "tone_check":
+                negative_terms = params.get("negative_terms", [])
+                found_neg = any(t.lower() in output for t in negative_terms)
+                result["passed"] = not found_neg
+            else:
+                result["passed"] = True
+
+            if result["passed"]:
+                passed += 1
+            rule_results.append(result)
+
+        score = passed / total if total > 0 else 1.0
+        return {
+            "status": "rules_pass" if score >= self.score_threshold else "rules_fail",
+            "score": round(score, 3),
+            "rule_results": rule_results,
+            "fail_reasons": [r["rule"] for r in rule_results if not r["passed"]],
+        }
+
+    def analyze(self, exclude_agents: set[str] | None = None) -> dict[str, dict]:
+        rules = self._generate_rules()
+        nodes = self.dag.get_nodes()
+        results = {}
+        exclude = exclude_agents or set()
+        for agent_id, node in nodes.items():
+            if agent_id in exclude:
+                continue
+            if not rules:
+                results[agent_id] = {"status": "rules_pass", "score": 1.0, "rule_results": [], "fail_reasons": []}
+                continue
+            results[agent_id] = self._evaluate_agent_against_rules(node, rules)
+        return results
+
+
+class SpecialistEvaluator:
+    """
+    Tier 3: Per-agent LLM evaluation for deep quality assessment.
+    Only runs on agents escalated from Tier 2.
+    """
+
+    def __init__(self, dag: AgentDAG, user_goal: str, model: str = "gpt-4o", score_threshold: float = 0.7):
+        self.dag = dag
+        self.user_goal = user_goal
+        self.model = model
+        self.score_threshold = score_threshold
+
+    def _build_prompt(self, agent_id: str, node: dict) -> str:
+        name = node.get("agent_name", agent_id)
+        inp = _truncate(node.get("input", ""), 400)
+        out = _truncate(node.get("output", ""), 800)
+        tools = node.get("core_payload", {}).get("tool_calls", [])
+        tool_str = ""
+        if tools:
+            tool_names = [f"{tc.get('function_name', '?')}({json.dumps(tc.get('arguments', {}))[:100]})" for tc in tools[:5]]
+            tool_str = f"\nTool calls: {', '.join(tool_names)}"
+
+        parent_context = ""
+        parent_ids = self.dag.get_parents(agent_id)
+        if parent_ids:
+            parent_outputs = []
+            for pid in parent_ids[:3]:
+                pnode = self.dag.get_node(pid)
+                if pnode:
+                    pname = pnode.get("agent_name", pid)
+                    pout = _truncate(pnode.get("output", ""), 200)
+                    parent_outputs.append(f"  - {pname}: {pout}")
+            if parent_outputs:
+                parent_context = f"\nParent agent outputs:\n{chr(10).join(parent_outputs)}"
+
+        return f"""You are an expert evaluator for a multi-agent system. Analyze this agent's performance.
+
+User's goal: {self.user_goal}
+
+Agent: {name}
+Input: {inp}
+Output: {out}{tool_str}{parent_context}
+
+Evaluate this agent on:
+1. Role fulfillment - Does it perform its designated role correctly?
+2. Output quality - Is the output well-formed, complete, and useful?
+3. Goal alignment - Does it contribute to the user's overall goal?
+
+Return a JSON object with:
+{{
+  "score": <float 0.0-1.0>,
+  "role_assessment": "<brief assessment>",
+  "quality_assessment": "<brief assessment>",
+  "goal_alignment": "<brief assessment>",
+  "verdict": "PASS" or "FAIL",
+  "explanation": "<one sentence summary>"
+}}
+
+Return ONLY the JSON object."""
+
+    def _parse_response(self, response: str) -> dict:
+        import re
+        try:
+            match = re.search(r'\{.*\}', response, re.DOTALL)
+            if match:
+                data = json.loads(match.group())
+                return {
+                    "score": float(data.get("score", 0.5)),
+                    "role_assessment": data.get("role_assessment", ""),
+                    "quality_assessment": data.get("quality_assessment", ""),
+                    "goal_alignment": data.get("goal_alignment", ""),
+                    "verdict": data.get("verdict", "UNCLEAR"),
+                    "explanation": data.get("explanation", ""),
+                }
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+        return {
+            "score": 0.5,
+            "role_assessment": "Could not parse evaluation",
+            "quality_assessment": "Could not parse evaluation",
+            "goal_alignment": "Could not parse evaluation",
+            "verdict": "UNCLEAR",
+            "explanation": response[:200] if response else "No response",
+        }
+
+    def analyze(self, exclude_agents: set[str] | None = None) -> dict[str, dict]:
+        nodes = self.dag.get_nodes()
+        results = {}
+        exclude = exclude_agents or set()
+        for agent_id, node in nodes.items():
+            if agent_id in exclude:
+                continue
+            prompt = self._build_prompt(agent_id, node)
+            response = _call_llm(prompt, self.model)
+            parsed = self._parse_response(response)
+            status = "specialist_pass" if parsed["score"] >= self.score_threshold else "specialist_fail"
+            results[agent_id] = {
+                "status": status,
+                **parsed,
+                "fail_reasons": [parsed["explanation"]] if status == "specialist_fail" else [],
+            }
+        return results
+
+
+class CascadeEvaluator:
+    """
+    Orchestrates the 3-tier cascade: Sentinel -> Rules Judge -> Specialist.
+    ALL agents run through ALL 3 tiers. An agent only passes (green) if it
+    clears every tier. If it fails any tier, it is marked with that tier's failure.
+    """
+
+    def __init__(self, dag: AgentDAG, user_goal: str, tier2_model: str = "gpt-4o-mini", tier3_model: str = "gpt-4o"):
+        self.dag = dag
+        self.user_goal = user_goal
+        self.tier2_model = tier2_model
+        self.tier3_model = tier3_model
+
+    def evaluate(self) -> dict:
+        all_agents = set(self.dag.get_nodes().keys())
+
+        # Tier 1: Sentinel (no LLM) — run on ALL agents
+        sentinel = SentinelAnalyzer(self.dag)
+        t1_results = sentinel.analyze()
+
+        tier1_passed = set()
+        tier1_failed = set()
+        for aid, res in t1_results.items():
+            if res["score"] >= 0.5:
+                tier1_passed.add(aid)
+            else:
+                tier1_failed.add(aid)
+
+        # Tier 2: Rules Judge (1 LLM call for rules) — run on ALL agents
+        judge = GlobalRulesJudge(self.dag, self.user_goal, model=self.tier2_model)
+        t2_results = judge.analyze()
+        rules_generated = len(judge._rules or [])
+
+        tier2_passed = set()
+        tier2_failed = set()
+        for aid, res in t2_results.items():
+            if res["score"] >= 0.6:
+                tier2_passed.add(aid)
+            else:
+                tier2_failed.add(aid)
+
+        # Tier 3: Specialist (1 LLM call per agent) — run on ALL agents
+        specialist = SpecialistEvaluator(self.dag, self.user_goal, model=self.tier3_model)
+        t3_results = specialist.analyze()
+
+        tier3_passed = set()
+        tier3_failed = set()
+        for aid, res in t3_results.items():
+            if res["status"] == "specialist_pass":
+                tier3_passed.add(aid)
+            else:
+                tier3_failed.add(aid)
+
+        # Build verdicts: pass ONLY if all 3 tiers pass
+        agent_verdicts = {}
+        passed_all = set()
+        for aid in all_agents:
+            t1 = t1_results.get(aid, {})
+            t2 = t2_results.get(aid, {})
+            t3 = t3_results.get(aid, {})
+
+            all_pass = aid in tier1_passed and aid in tier2_passed and aid in tier3_passed
+
+            if all_pass:
+                passed_all.add(aid)
+                agent_verdicts[aid] = {
+                    "evaluated_by_tier": 3, "tier_name": "All Tiers",
+                    "status": "pass",
+                    "score": t3.get("score", 1.0),
+                    "fail_reasons": [],
+                    "details": {
+                        "t1_score": t1.get("score", 0),
+                        "t2_score": t2.get("score", 0),
+                        "t3_score": t3.get("score", 0),
+                        "role_assessment": t3.get("role_assessment", ""),
+                        "quality_assessment": t3.get("quality_assessment", ""),
+                        "goal_alignment": t3.get("goal_alignment", ""),
+                        "explanation": t3.get("explanation", ""),
+                    },
+                }
+            else:
+                # Find the FIRST tier that failed — that's the blocking tier
+                if aid in tier1_failed:
+                    failed_tier = 1
+                    tier_name = "Sentinel"
+                    score = t1.get("score", 0)
+                    fail_reasons = t1.get("fail_reasons", [])
+                    details = {"checks": t1.get("checks", [])}
+                elif aid in tier2_failed:
+                    failed_tier = 2
+                    tier_name = "Rules Judge"
+                    score = t2.get("score", 0)
+                    fail_reasons = t2.get("fail_reasons", [])
+                    details = {"rule_results": t2.get("rule_results", [])}
+                else:
+                    failed_tier = 3
+                    tier_name = "Specialist"
+                    score = t3.get("score", 0)
+                    fail_reasons = t3.get("fail_reasons", [])
+                    details = {
+                        "role_assessment": t3.get("role_assessment", ""),
+                        "quality_assessment": t3.get("quality_assessment", ""),
+                        "goal_alignment": t3.get("goal_alignment", ""),
+                        "explanation": t3.get("explanation", ""),
+                    }
+
+                agent_verdicts[aid] = {
+                    "evaluated_by_tier": failed_tier, "tier_name": tier_name,
+                    "status": "fail",
+                    "score": score,
+                    "fail_reasons": fail_reasons,
+                    "details": details,
+                }
+
+        llm_calls = 1 + len(t3_results)  # 1 for T2 rules + 1 per agent for T3
+
+        return {
+            "agent_verdicts": agent_verdicts,
+            "tier_summaries": {
+                "1": {"total_evaluated": len(t1_results), "passed": len(tier1_passed), "failed": len(tier1_failed)},
+                "2": {"total_evaluated": len(t2_results), "passed": len(tier2_passed), "failed": len(tier2_failed), "rules_generated": rules_generated},
+                "3": {"total_evaluated": len(t3_results), "passed": len(tier3_passed), "failed": len(tier3_failed)},
+            },
+            "overall": {
+                "total_agents": len(all_agents),
+                "passed_all": len(passed_all),
+                "failed_tier1": len(tier1_failed),
+                "failed_tier2": len(tier2_failed - tier1_failed),
+                "failed_tier3": len(tier3_failed - tier2_failed - tier1_failed),
+                "llm_calls_made": llm_calls,
+            },
+        }
+
+
 class TaskProgressMonitor:
     """
     Takes user goal, walks the agent DAG, and every N steps summarizes progress

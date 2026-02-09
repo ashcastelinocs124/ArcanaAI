@@ -1,5 +1,5 @@
 """
-Flask API server for Arcana LLM Observability Platform.
+Flask API server for ArcanaAI LLM Observability Platform.
 
 Provides endpoints for:
 - Prompt optimization with Excel uploads
@@ -34,6 +34,7 @@ from gateway.gateway_cache import CacheStore
 from workflow_engine import WorkflowEngine
 from semantic_pipeline import (
     AgentDAG,
+    CascadeEvaluator,
     TaskProgressMonitor,
     extract_agent_logs,
 )
@@ -247,9 +248,13 @@ def analyze_pipeline():
         traces = data['traces']
         trace_id = data.get('trace_id')
         user_goal = data.get('user_goal')
+        evaluation_mode = data.get('evaluation_mode', 'cascade')
 
         if not user_goal:
             return jsonify({'error': 'user_goal is required'}), 400
+
+        if evaluation_mode not in ('checkpoints', 'cascade', 'both'):
+            return jsonify({'error': 'evaluation_mode must be checkpoints, cascade, or both'}), 400
 
         # Extract agent logs
         agent_logs = extract_agent_logs(traces)
@@ -266,15 +271,14 @@ def analyze_pipeline():
         results = {}
         for tid in target_traces:
             dag = dags[tid]
+            result = {'trace_id': tid}
 
-            # Run task progress monitoring with checkpoint every 2 nodes
-            monitor = TaskProgressMonitor(dag, user_goal=user_goal, checkpoint_interval=2)
-            checkpoints, deviations = monitor.check_progress()
-
-            result = {
-                'trace_id': tid,
-                'total_steps': len(monitor._get_ordered_steps()),
-                'checkpoints': [
+            # Run checkpoints if mode is checkpoints or both
+            if evaluation_mode in ('checkpoints', 'both'):
+                monitor = TaskProgressMonitor(dag, user_goal=user_goal, checkpoint_interval=2)
+                checkpoints, deviations = monitor.check_progress()
+                result['total_steps'] = len(monitor._get_ordered_steps())
+                result['checkpoints'] = [
                     {
                         'step_count': cp['step_count'],
                         'summary': cp['summary'],
@@ -284,8 +288,8 @@ def analyze_pipeline():
                         'agent_names': [child_node.get('agent_name', child_id) for _, child_id, child_node in cp['steps']],
                     }
                     for cp in checkpoints
-                ],
-                'deviations': [
+                ]
+                result['deviations'] = [
                     {
                         'step_count': d['step_count'],
                         'agent_ids': d['agent_ids'],
@@ -293,8 +297,12 @@ def analyze_pipeline():
                         'verdict': d['verdict'],
                     }
                     for d in deviations
-                ],
-            }
+                ]
+
+            # Run cascade evaluation if mode is cascade or both
+            if evaluation_mode in ('cascade', 'both'):
+                cascade = CascadeEvaluator(dag, user_goal)
+                result['cascade_evaluation'] = cascade.evaluate()
 
             results[tid] = result
 
@@ -498,5 +506,5 @@ if __name__ == '__main__':
         print("Set it in .env file or export OPENAI_API_KEY=your-key")
 
     print(f"Upload folder: {UPLOAD_FOLDER}")
-    print("Starting Arcana API server on http://localhost:5000")
+    print("Starting ArcanaAI API server on http://localhost:5000")
     app.run(debug=True, port=5000)
