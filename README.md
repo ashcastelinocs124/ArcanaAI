@@ -12,6 +12,10 @@ A professional observability platform for multi-agent LLM systems with forensic 
 - Pipeline health per-trace analysis
 - Guardrail events monitoring
 
+## Dashboard
+
+The dashboard provides an at-a-glance view of system health, including total traces, agent executions, pass rate, model health distribution, latency trends, and guardrail events. It is designed to surface drift, safety issues, and performance bottlenecks quickly.
+
 ### 2. **Trace Monitoring**
 - Browse all multi-agent execution traces
 - Filter by pass/fail status
