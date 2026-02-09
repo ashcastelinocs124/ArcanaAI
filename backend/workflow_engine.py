@@ -15,7 +15,7 @@ import json
 import queue
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Generator
 
 
@@ -358,7 +358,7 @@ class WorkflowEngine:
                         ): idx
                         for idx, spec, inp, mdl in level_tasks
                     }
-                    for future in futures:
+                    for future in as_completed(futures):
                         agent_idx = futures[future]
                         result = future.result()
                         agent_outputs[agent_idx] = result["output"]

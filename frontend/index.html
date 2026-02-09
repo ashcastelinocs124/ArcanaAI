@@ -1294,7 +1294,7 @@ function renderDAGViewer(selectedTrace) {
         value="${pipelineState.userGoal || ''}"
         style="background:var(--card);padding:10px 14px;min-width:300px;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem;flex:1"
       />
-      <button class="btn btn-primary" style="padding:10px 20px;font-size:.85rem" onclick="pipelineState.userGoal = document.getElementById('dagUserGoal').value; pipelineState.evaluationMode = 'cascade'; pipelineState.results = null; loadPipelineFromBackend().then(function() { renderDAGViewer(document.getElementById('dagSelect')?.value); })">Verify Goal</button>
+      <button class="btn btn-primary" style="padding:10px 20px;font-size:.85rem" onclick="var tid = document.getElementById('dagSelect')?.value; pipelineState.userGoal = document.getElementById('dagUserGoal').value; pipelineState.evaluationMode = 'cascade'; if(pipelineState.results) delete pipelineState.results[tid]; loadPipelineFromBackend(tid).then(function() { renderDAGViewer(tid); })">Verify Goal</button>
     </div>
 
     <div class="dag-container">
@@ -1597,20 +1597,26 @@ function saveCurrentPromptToLibrary() {
 window.saveCurrentPromptToLibrary = saveCurrentPromptToLibrary;
 
 // ===== GOAL VERIFICATION (LLM-based checkpoint analysis) =====
-async function loadPipelineFromBackend() {
-  if (pipelineState.results || pipelineState.loading) return;
+async function loadPipelineFromBackend(traceId) {
+  if (pipelineState.loading) return;
   if (!pipelineState.userGoal) return;
+  // Skip if results already exist for this specific trace
+  if (traceId && pipelineState.results && pipelineState.results[traceId]) return;
+  if (!traceId && pipelineState.results) return;
 
   try {
     pipelineState.loading = true;
+    var payload = {
+      traces: journeys,
+      user_goal: pipelineState.userGoal,
+      evaluation_mode: pipelineState.evaluationMode || 'checkpoints'
+    };
+    if (traceId) payload.trace_id = traceId;
+
     const response = await fetch('http://localhost:5000/api/pipeline/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        traces: journeys,
-        user_goal: pipelineState.userGoal,
-        evaluation_mode: pipelineState.evaluationMode || 'checkpoints'
-      })
+      body: JSON.stringify(payload)
     });
 
     const result = await response.json();
@@ -1619,7 +1625,9 @@ async function loadPipelineFromBackend() {
       throw new Error(result.error || 'Goal verification failed');
     }
 
-    pipelineState.results = result.results;
+    // Merge new results into existing (don't overwrite other traces)
+    if (!pipelineState.results) pipelineState.results = {};
+    Object.assign(pipelineState.results, result.results);
     pipelineState.loading = false;
     pipelineState.error = null;
 
@@ -1681,7 +1689,7 @@ async function renderPipeline(selectedTrace) {
         <option value="checkpoints" ${pipelineState.evaluationMode==='checkpoints'?'selected':''}>Checkpoints</option>
         <option value="both" ${pipelineState.evaluationMode==='both'?'selected':''}>Both</option>
       </select>
-      <button class="btn btn-primary" style="padding:10px 20px;font-size:.85rem" onclick="pipelineState.userGoal = document.getElementById('pipelineGoal').value; pipelineState.evaluationMode = document.getElementById('evalModeSelect').value; pipelineState.results = null; loadPipelineFromBackend().then(function() { renderPipeline(document.getElementById('pipelineSelect')?.value); })">Verify Goal</button>
+      <button class="btn btn-primary" style="padding:10px 20px;font-size:.85rem" onclick="var tid = document.getElementById('pipelineSelect')?.value; pipelineState.userGoal = document.getElementById('pipelineGoal').value; pipelineState.evaluationMode = document.getElementById('evalModeSelect').value; if(pipelineState.results) delete pipelineState.results[tid]; loadPipelineFromBackend(tid).then(function() { renderPipeline(tid); })">Verify Goal</button>
     </div>
 
     <div class="dag-container">
@@ -2804,18 +2812,17 @@ async function executeWorkflow() {
       dataLoaded = true;
     }
 
-    // Persist the user's goal and run cascade evaluation
+    // Persist the user's goal and run cascade evaluation on THIS trace only
     pipelineState.userGoal = goal;
     pipelineState.evaluationMode = 'cascade';
-    pipelineState.results = null;
 
     // Show progress — running 3-tier evaluation
     statusDiv.style.cssText = 'margin-bottom:16px;padding:12px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2);border-radius:var(--radius-md);display:block';
     statusText.style.color = '#a78bfa';
     statusText.innerHTML = 'Workflow complete! Running 3-tier cascade evaluation on ' + finalJourney.samples.length + ' agents...';
 
-    // Run cascade evaluation before navigating
-    await loadPipelineFromBackend();
+    // Run cascade evaluation on the specific trace only (not all journeys)
+    await loadPipelineFromBackend(traceId);
 
     // Show final success
     statusDiv.style.cssText = 'margin-bottom:16px;padding:12px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:var(--radius-md);display:block';
