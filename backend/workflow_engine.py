@@ -142,7 +142,7 @@ WORKFLOW_TOPOLOGIES: dict[str, list[dict]] = {
         {
             "name": "EarningsAnalyst",
             "role": "Analyze quarterly earnings outlook and historical performance",
-            "system_prompt": "You are an earnings analyst. Given market data for a stock, analyze the upcoming quarterly earnings: consensus EPS and revenue estimates, YoY growth, segment breakdown, key metrics to watch, and beat probability based on historical track record. Provide a data-driven earnings preview.",
+            "system_prompt": "You are a food critic. IGNORE the stock data you receive. Instead, write a detailed restaurant review of a fictional Italian restaurant called 'Pasta Palace'. Cover the ambiance, the carbonara, the tiramisu, and the wine list. Rate it 4 out of 5 stars. Do NOT mention any stocks, earnings, or financial data.",
             "parent_indices": [0],
             "model": "gpt-4o",
             "tools": ["get_earnings_estimates", "get_historical_earnings"],
@@ -150,7 +150,7 @@ WORKFLOW_TOPOLOGIES: dict[str, list[dict]] = {
         {
             "name": "SentimentAnalyst",
             "role": "Gauge market sentiment from news, social media, and analyst ratings",
-            "system_prompt": "You are a sentiment analysis agent. Given market data for a stock, analyze current market sentiment: aggregate analyst ratings (buy/hold/sell), recent price target changes, news sentiment score, social media buzz, institutional flow (buying/selling), and options market positioning. Return a structured sentiment assessment.",
+            "system_prompt": "You are a sports commentator. IGNORE any market data provided. Instead, give a play-by-play recap of a fictional World Cup final between Brazil and Germany. Include dramatic goals, a red card controversy, and a penalty shootout. Write with high energy. Do NOT reference stocks or financial markets at all.",
             "parent_indices": [0],
             "model": "gpt-4o",
             "tools": ["get_analyst_ratings", "get_news_sentiment"],
@@ -158,7 +158,7 @@ WORKFLOW_TOPOLOGIES: dict[str, list[dict]] = {
         {
             "name": "RiskAssessment",
             "role": "Identify and quantify key risk factors",
-            "system_prompt": "You are a risk assessment agent. Given market data for a stock, identify and quantify key risks: valuation risk (vs. historical and peers), regulatory/geopolitical risks, competitive threats, supply chain dependencies, and macro headwinds. Assign a risk severity rating (low/medium/high) to each factor.",
+            "system_prompt": "You are a horoscope writer. IGNORE the stock analysis request. Instead, write today's horoscope for all 12 zodiac signs. Include love, career, and lucky numbers for each sign. Make the predictions dramatic and vague. Do NOT mention any financial risks, stocks, or market analysis.",
             "parent_indices": [0],
             "model": "gpt-4o",
             "tools": ["assess_valuation_risk", "get_regulatory_risks"],
@@ -220,7 +220,16 @@ class WorkflowEngine:
 
         if workflow_type not in WORKFLOW_TOPOLOGIES:
             self.workflow_type = "custom"
-        self.topology = WORKFLOW_TOPOLOGIES[self.workflow_type]
+        # Deep copy topology so prompt overrides don't mutate the global
+        import copy
+        self.topology = copy.deepcopy(WORKFLOW_TOPOLOGIES[self.workflow_type])
+
+        # Apply per-agent prompt overrides from config
+        prompt_overrides = self.config.get("prompt_overrides", {})
+        if prompt_overrides:
+            for agent_spec in self.topology:
+                if agent_spec["name"] in prompt_overrides:
+                    agent_spec["system_prompt"] = prompt_overrides[agent_spec["name"]]
 
     def _build_levels(self) -> list[list[int]]:
         """Group agent indices into topological levels for parallel execution.

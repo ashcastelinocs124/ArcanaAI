@@ -15,7 +15,7 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Check if dependencies are installed
-if ! python3 -c "import flask" &> /dev/null; then
+if ! python3 -c "import django" &> /dev/null; then
     echo "📦 Installing dependencies..."
     pip install -r requirements.txt
 fi
@@ -26,9 +26,9 @@ lsof -ti:5000 | xargs kill -9 2>/dev/null || true
 lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 sleep 1
 
-# Start backend API server
+# Start backend API server (Django)
 echo "🔧 Starting backend API server on http://localhost:5000..."
-nohup python3 backend/api.py > /tmp/arcana-backend.log 2>&1 &
+nohup python3 backend/manage.py runserver 5000 > /tmp/arcana-backend.log 2>&1 &
 BACKEND_PID=$!
 echo "   Backend PID: $BACKEND_PID"
 

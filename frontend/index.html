@@ -229,6 +229,27 @@ textarea:focus{border-color:var(--copper)}
 .upload-zone{border:2px dashed var(--border);border-radius:var(--radius-lg);padding:36px;text-align:center;cursor:pointer;transition:var(--transition)}
 .upload-zone:hover{border-color:var(--copper);background:var(--copper-glow)}
 .upload-zone.active{border-color:var(--copper);background:var(--copper-dim)}
+/* Prompt Management Table */
+.prompt-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.prompt-topbar-left{display:flex;align-items:baseline;gap:14px}
+.prompt-filter-row{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.prompt-search{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:7px 16px;font-size:.82rem;color:var(--text);width:240px;transition:var(--transition)}
+.prompt-search:focus{border-color:var(--copper);width:300px}
+.prompt-star{background:none;border:none;cursor:pointer;font-size:1.05rem;line-height:1;padding:2px;color:var(--text-dim);transition:var(--transition)}
+.prompt-star:hover{color:var(--copper)}
+.prompt-star.active{color:var(--copper)}
+.prompt-label{display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:.68rem;font-weight:500;background:var(--copper-dim);color:var(--copper);margin:1px 3px;white-space:nowrap}
+.prompt-label-add{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:.68rem;background:var(--card-hover);color:var(--text-dim);cursor:pointer;border:1px dashed var(--border);transition:var(--transition)}
+.prompt-label-add:hover{border-color:var(--copper);color:var(--copper)}
+.prompt-menu{position:absolute;right:8px;top:100%;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:50;min-width:140px;padding:4px 0}
+.prompt-menu-item{display:block;width:100%;text-align:left;padding:8px 16px;font-size:.82rem;color:var(--text-secondary);cursor:pointer;border:none;background:none;transition:var(--transition)}
+.prompt-menu-item:hover{background:var(--copper-glow);color:var(--text)}
+.prompt-menu-item.danger{color:var(--red)}
+.prompt-menu-item.danger:hover{background:var(--red-dim)}
+.new-prompt-card{background:var(--card);border:2px solid var(--border);border-radius:var(--radius-lg);padding:24px;cursor:pointer;transition:var(--transition);text-align:center}
+.new-prompt-card:hover{border-color:var(--copper-dim);background:var(--copper-glow)}
+.new-prompt-card.selected{border-color:var(--copper);background:var(--copper-dim)}
+
 .opt-result-row{display:grid;grid-template-columns:44px 1fr 1fr .6fr .5fr;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:.88rem;align-items:start}
 .opt-score{font-family:var(--font-display);font-size:1.2rem}
 .opt-iter{color:var(--text-dim);font-size:.8rem}
@@ -1141,8 +1162,37 @@ function showAgentPanel(agentId, traceId) {
     }
   }
 
+  // Look up optimized prompts from library for this agent
+  var optimizedPromptHTML = '';
+  var lib = loadPromptLibrary();
+  var matchingPrompts = lib.filter(function(p) {
+    return p.agentName && p.agentName === agent.agent_name;
+  });
+  if (matchingPrompts.length > 0) {
+    var promptOptions = matchingPrompts.map(function(p) {
+      return '<option value="' + p.id + '">' + p.name + ' (' + formatPromptDate(p.updatedAt) + ')</option>';
+    }).join('');
+    optimizedPromptHTML = '<div style="background:var(--copper-dim);border:1px solid rgba(200,149,108,.2);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:16px">' +
+      '<div style="font-size:.78rem;font-weight:600;color:var(--copper);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Optimized Prompts Available</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        '<select id="agentPromptSelect" style="flex:1;min-width:180px;padding:6px 10px;font-size:.8rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">' +
+          promptOptions +
+        '</select>' +
+        '<button class="btn btn-primary" style="padding:6px 14px;font-size:.78rem;white-space:nowrap" onclick="replaceWithOptimizedPrompt(\'' + agent.agent_name + '\',\'' + traceId + '\')">Replace &amp; Re-run</button>' +
+      '</div>' +
+      '<div style="font-size:.68rem;color:var(--text-dim);margin-top:6px">Re-runs the workflow with this optimized prompt for ' + agent.agent_name + '</div>' +
+    '</div>';
+  } else {
+    optimizedPromptHTML = '<div style="background:var(--card-hover);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">' +
+      '<div><div style="font-size:.78rem;color:var(--text-dim);font-weight:500">No optimized prompts for ' + agent.agent_name + '</div>' +
+      '<div style="font-size:.68rem;color:var(--text-dim);margin-top:2px">Save one from the Prompt Optimizer to enable replacement</div></div>' +
+      '<button class="btn btn-ghost" style="padding:5px 12px;font-size:.72rem;white-space:nowrap" onclick="navigateTo(\'optimizer\');closePanel()">Go to Optimizer</button>' +
+    '</div>';
+  }
+
   document.getElementById('panelContent').innerHTML = `
     <h3 style="font-family:var(--font-display);font-size:1.3rem;margin-bottom:16px">${agent.agent_name}</h3>
+    ${optimizedPromptHTML}
     ${cascadeHTML}
     ${deviationHTML}
     ${renderAgentCard(agent)}
@@ -1157,6 +1207,194 @@ function closePanel() {
   document.getElementById('panelOverlay').classList.remove('open');
 }
 window.closePanel = closePanel;
+
+async function replaceWithOptimizedPrompt(agentName, traceId) {
+  // Get selected prompt from dropdown
+  var selectEl = document.getElementById('agentPromptSelect');
+  if (!selectEl) return;
+  var promptId = selectEl.value;
+  var lib = loadPromptLibrary();
+  var prompt = lib.find(function(p) { return p.id === promptId; });
+  if (!prompt) { alert('Prompt not found.'); return; }
+
+  // Find the journey to get workflow metadata
+  var journey = journeys.find(function(j) { return j.trace_id === traceId; });
+  if (!journey) { alert('Journey not found.'); return; }
+
+  // Determine workflow type from journey metadata
+  var workflowType = null;
+  for (var i = 0; i < journey.samples.length; i++) {
+    if (journey.samples[i].metadata && journey.samples[i].metadata.workflow_type) {
+      workflowType = journey.samples[i].metadata.workflow_type;
+      break;
+    }
+  }
+  if (!workflowType) {
+    alert('Cannot determine workflow type from this journey. Only workflow-generated traces can be re-run.');
+    return;
+  }
+
+  // Get original goal
+  var originalGoal = pipelineState.userGoal || '';
+  if (!originalGoal && journey.samples.length) {
+    // Try to get goal from root agent input
+    var rootAgent = journey.samples.find(function(s) { return !s.parent_id && !s.parent_ids; });
+    if (rootAgent) originalGoal = rootAgent.input || '';
+  }
+  if (!originalGoal) {
+    originalGoal = window.prompt('Enter the goal for this workflow:');
+    if (!originalGoal) return;
+  }
+
+  if (!confirm('Replace ' + agentName + '\'s prompt with "' + prompt.name + '" and re-run the entire ' + workflowType.replace(/_/g, ' ') + ' workflow?')) return;
+
+  closePanel();
+
+  // Build config with prompt override
+  var config = {
+    prompt_overrides: {}
+  };
+  config.prompt_overrides[agentName] = prompt.template;
+
+  // Show the workflow dialog with pre-filled state
+  var overlay = document.createElement('div');
+  overlay.id = 'workflow-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+
+  var dialog = document.createElement('div');
+  dialog.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);width:600px;max-width:90vw;max-height:80vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5)';
+
+  dialog.innerHTML =
+    '<div style="padding:24px;border-bottom:1px solid var(--border)">' +
+      '<div style="font-family:var(--font-display);font-size:1.4rem;color:var(--copper)">Re-run with Optimized Prompt</div>' +
+      '<div style="font-size:.8rem;color:var(--text-secondary);margin-top:4px">Replacing <strong style="color:var(--copper)">' + agentName + '</strong>\'s prompt with <strong style="color:var(--green)">' + prompt.name + '</strong></div>' +
+    '</div>' +
+    '<div style="padding:24px">' +
+      '<div style="background:var(--green-dim);border:1px solid rgba(74,222,128,.15);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px">' +
+        '<div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green);font-weight:600;margin-bottom:6px">New Prompt for ' + agentName + '</div>' +
+        '<div style="font-family:\'DM Sans\',monospace;font-size:.8rem;color:var(--text-secondary);line-height:1.5;max-height:120px;overflow-y:auto">' + prompt.template + '</div>' +
+      '</div>' +
+      '<div style="margin-bottom:16px">' +
+        '<label class="agent-field-label" style="display:block;margin-bottom:4px">Workflow: ' + workflowType.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); }) + '</label>' +
+        '<label class="agent-field-label" style="display:block;margin-bottom:6px;margin-top:8px">Goal</label>' +
+        '<textarea id="rerunGoal" rows="3" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:.85rem">' + originalGoal + '</textarea>' +
+      '</div>' +
+      '<div id="rerunStatus" style="margin-bottom:16px;padding:12px;background:var(--blue-dim);border:1px solid rgba(96,165,250,.2);border-radius:var(--radius);display:none">' +
+        '<div id="rerunStatusText" style="font-size:.82rem;color:var(--text-secondary)"></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+        '<button onclick="document.getElementById(\'workflow-overlay\')?.remove()" class="btn" style="padding:10px 20px">Cancel</button>' +
+        '<button id="rerunBtn" class="btn btn-primary" style="padding:10px 30px">Re-run Workflow</button>' +
+      '</div>' +
+    '</div>';
+
+  overlay.appendChild(dialog);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  workflowDialog = overlay;
+
+  // Wire up the execute button
+  document.getElementById('rerunBtn').addEventListener('click', async function() {
+    var goal = document.getElementById('rerunGoal')?.value?.trim();
+    if (!goal) { alert('Please enter a goal.'); return; }
+
+    var btn = document.getElementById('rerunBtn');
+    var statusDiv = document.getElementById('rerunStatus');
+    var statusText = document.getElementById('rerunStatusText');
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+    statusDiv.style.display = 'block';
+    statusText.textContent = 'Connecting to backend...';
+
+    try {
+      var response = await fetch('http://localhost:5000/api/workflow/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goal: goal,
+          workflow_type: workflowType,
+          config: config
+        })
+      });
+
+      if (!response.ok) {
+        var err = await response.json().catch(function() { return {}; });
+        throw new Error(err.error || 'Workflow request failed');
+      }
+
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var finalJourney = null;
+      var newTraceId = '';
+
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        var parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+        for (var pi = 0; pi < parts.length; pi++) {
+          var eventData = null;
+          var lines = parts[pi].split('\n');
+          for (var li = 0; li < lines.length; li++) {
+            if (lines[li].indexOf('data: ') === 0) {
+              try { eventData = JSON.parse(lines[li].slice(6)); } catch (_) {}
+            }
+          }
+          if (!eventData) continue;
+          var evt = eventData.type;
+          var d = eventData.data;
+          if (evt === 'agent_start') {
+            var isOverridden = d.name === agentName ? ' <span style="color:var(--green)">(optimized prompt)</span>' : '';
+            statusText.innerHTML = '<span style="color:var(--copper)">' + d.name + '</span>' + isOverridden + ' \u2014 ' + d.role + '<br><span style="color:var(--text-dim);font-size:.85em">' + d.completed + '/' + d.total + ' agents</span>';
+          } else if (evt === 'agent_done') {
+            statusText.innerHTML = '<span style="color:var(--green)">\u2713</span> <span style="color:var(--copper)">' + d.name + '</span> done (' + d.latency + 's) \u2014 ' + d.completed + '/' + d.total;
+          } else if (evt === 'complete') {
+            newTraceId = d.trace_id;
+            finalJourney = d.journey;
+          }
+        }
+      }
+
+      if (!finalJourney) throw new Error('Stream ended without completion');
+
+      if (finalJourney.samples) {
+        ensureAgentIds(finalJourney);
+        journeys.push(finalJourney);
+        DATA.journeys.push(finalJourney);
+        dataLoaded = true;
+      }
+
+      pipelineState.userGoal = goal;
+      pipelineState.evaluationMode = 'cascade';
+
+      statusDiv.style.cssText = 'margin-bottom:16px;padding:12px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2);border-radius:var(--radius);display:block';
+      statusText.style.color = '#a78bfa';
+      statusText.innerHTML = 'Workflow complete! Running cascade evaluation...';
+
+      await loadPipelineFromBackend(newTraceId);
+
+      statusDiv.style.cssText = 'margin-bottom:16px;padding:12px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:var(--radius);display:block';
+      statusText.style.color = 'var(--green)';
+      statusText.innerHTML = 'Done! Trace: ' + newTraceId + ' (' + finalJourney.samples.length + ' agents)';
+
+      setTimeout(function() {
+        if (workflowDialog) { workflowDialog.remove(); workflowDialog = null; }
+        navigateTo('dagviewer');
+        setTimeout(function() { renderDAGViewer(newTraceId); }, 300);
+      }, 1500);
+
+    } catch (error) {
+      statusDiv.style.cssText += 'background:var(--red-dim);border-color:rgba(248,113,113,.2)';
+      statusText.style.color = 'var(--red)';
+      statusText.textContent = 'Error: ' + error.message;
+      btn.disabled = false;
+      btn.textContent = 'Re-run Workflow';
+    }
+  });
+}
+window.replaceWithOptimizedPrompt = replaceWithOptimizedPrompt;
 
 // ===== METRICS =====
 function renderMetrics() {
@@ -1580,7 +1818,12 @@ function loadPromptToOptimizer(promptId) {
   var lib = loadPromptLibrary();
   var p = lib.find(function(pr) { return pr.id === promptId; });
   if (!p) return;
-  optimizerState.promptTemplate = p.template;
+  promptsPageState.view = 'detail';
+  promptsPageState.activePromptId = promptId;
+  promptsPageState.promptTemplate = p.template;
+  promptsPageState.results = [];
+  promptsPageState.summary = null;
+  promptsPageState.error = null;
   navigateTo('optimizer');
 }
 window.loadPromptToOptimizer = loadPromptToOptimizer;
@@ -1973,20 +2216,24 @@ function renderDAGWithCheckpoints(containerId, journey, traceResult) {
 }
 
 // ===== PROMPT OPTIMIZER =====
-let optimizerState = {
-  fileName: null,
-  file: null,
+let promptsPageState = {
+  view: 'table',
+  activePromptId: null,
+  filters: { search: '', labels: [], favoritesOnly: false, agent: null, model: null },
+  sortField: 'updatedAt', sortDir: 'desc',
+  showNewDialog: false,
+  openMenuId: null,
+  // Carry over existing optimizer fields:
+  file: null, fileName: null, preview: null,
   promptTemplate: 'You are a helpful assistant. {input}',
-  targetScore: 0.85,
-  maxIters: 3,
-  results: [],
-  summary: null,
-  running: false,
-  error: null,
+  targetScore: 0.85, maxIters: 3,
+  results: [], summary: null, running: false, error: null,
   apiKey: localStorage.getItem('arcana-openai-key') || '',
   model: localStorage.getItem('arcana-optimizer-model') || 'gpt-4o',
   selectedAgent: null
 };
+// Backward-compatible alias
+var optimizerState = promptsPageState;
 
 // ===== PROMPT LIBRARY (localStorage persistence) =====
 let promptLibraryCompare = { left: null, right: null };
@@ -1994,7 +2241,15 @@ let promptLibraryCompare = { left: null, right: null };
 function loadPromptLibrary() {
   try {
     var raw = localStorage.getItem('arcana-prompt-library');
-    return raw ? JSON.parse(raw) : [];
+    var lib = raw ? JSON.parse(raw) : [];
+    // Migrate: backfill new fields for existing prompts
+    lib.forEach(function(p) {
+      if (!Array.isArray(p.labels)) p.labels = [];
+      if (typeof p.favorite !== 'boolean') p.favorite = false;
+      if (p.model === undefined) p.model = null;
+      if (!p.source) p.source = 'excel';
+    });
+    return lib;
   } catch (e) { return []; }
 }
 
@@ -2002,12 +2257,96 @@ function savePromptLibrary(lib) {
   localStorage.setItem('arcana-prompt-library', JSON.stringify(lib));
 }
 
-function addPrompt(name, agentName, template, notes) {
+function addPrompt(name, agentName, template, notes, labels, favorite, model, source, workflowType) {
   var lib = loadPromptLibrary();
   var now = new Date().toISOString();
-  lib.push({ id: 'p-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5), name: name, agentName: agentName, template: template, notes: notes || '', createdAt: now, updatedAt: now });
+  lib.push({
+    id: 'p-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+    name: name, agentName: agentName, template: template, notes: notes || '',
+    labels: Array.isArray(labels) ? labels : [],
+    favorite: !!favorite,
+    model: model || null,
+    source: source || 'excel',
+    workflowType: workflowType || null,
+    createdAt: now, updatedAt: now
+  });
   savePromptLibrary(lib);
   return lib;
+}
+
+function toggleFavorite(promptId) {
+  var lib = loadPromptLibrary().map(function(p) {
+    if (p.id === promptId) p.favorite = !p.favorite;
+    return p;
+  });
+  savePromptLibrary(lib);
+  return lib;
+}
+
+function duplicatePrompt(promptId) {
+  var lib = loadPromptLibrary();
+  var orig = lib.find(function(p) { return p.id === promptId; });
+  if (!orig) return lib;
+  var now = new Date().toISOString();
+  lib.push({
+    id: 'p-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+    name: orig.name + ' (copy)', agentName: orig.agentName, template: orig.template,
+    notes: orig.notes, labels: (orig.labels || []).slice(),
+    favorite: false, model: orig.model || null,
+    createdAt: now, updatedAt: now
+  });
+  savePromptLibrary(lib);
+  return lib;
+}
+
+function getAllLabels() {
+  var lib = loadPromptLibrary();
+  var set = {};
+  lib.forEach(function(p) {
+    (p.labels || []).forEach(function(l) { set[l] = true; });
+  });
+  return Object.keys(set).sort();
+}
+
+function getFilteredPrompts(filters, sortField, sortDir) {
+  var lib = loadPromptLibrary();
+  if (filters.search) {
+    var q = filters.search.toLowerCase();
+    lib = lib.filter(function(p) {
+      return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
+             (p.template || '').toLowerCase().indexOf(q) !== -1 ||
+             (p.agentName || '').toLowerCase().indexOf(q) !== -1 ||
+             (p.id || '').toLowerCase().indexOf(q) !== -1;
+    });
+  }
+  if (filters.labels && filters.labels.length) {
+    lib = lib.filter(function(p) {
+      return filters.labels.every(function(l) { return (p.labels || []).indexOf(l) !== -1; });
+    });
+  }
+  if (filters.favoritesOnly) {
+    lib = lib.filter(function(p) { return p.favorite; });
+  }
+  if (filters.agent) {
+    lib = lib.filter(function(p) { return p.agentName === filters.agent; });
+  }
+  if (filters.model) {
+    lib = lib.filter(function(p) { return p.model === filters.model; });
+  }
+  var field = sortField || 'updatedAt';
+  var dir = sortDir === 'asc' ? 1 : -1;
+  lib.sort(function(a, b) {
+    var va = a[field] || '', vb = b[field] || '';
+    return va < vb ? -dir : va > vb ? dir : 0;
+  });
+  return lib;
+}
+
+function formatPromptDate(isoString) {
+  if (!isoString) return '';
+  var d = new Date(isoString);
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[d.getMonth()] + ' ' + d.getDate();
 }
 
 function deletePrompt(promptId) {
@@ -2110,252 +2449,672 @@ async function runOptimizeRow(template, inputText, goldText, targetScore, maxIte
 
 function renderOptimizer() {
   try {
-  const st = optimizerState;
-  const hasResults = st.results.length > 0;
-
-  // Use summary stats from API response
-  const origAvg = st.summary?.original_avg || 0;
-  const optAvg = st.summary?.optimized_avg || 0;
-  const improvement = st.summary?.improvement?.toFixed(0) || 0;
-
-  document.getElementById('page-optimizer').innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <div>
-        <div class="section-heading" style="margin-bottom:4px">Prompt Optimizer</div>
-        <div class="section-sub" style="margin-bottom:0">Iteratively optimize prompt templates against expected outputs from your dataset.</div>
-      </div>
-    </div>
-    ${st.error ? '<div style="background:var(--red-dim);border:1px solid rgba(248,113,113,.3);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:.82rem;color:var(--red)">' + st.error + '</div>' : ''}
-
-    <!-- Config bar -->
-    <div class="metric-card" style="margin-bottom:20px;padding:16px 20px">
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:14px">
-        <div>
-          <label class="agent-field-label" style="margin-bottom:4px;display:block">Prompt Template</label>
-          <textarea id="promptTemplate" rows="2" style="font-size:.8rem" placeholder="Your prompt with {input} placeholder">${st.promptTemplate}</textarea>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <label class="agent-field-label" style="margin-bottom:3px;display:block">Target Score</label>
-            <input type="number" id="targetScore" value="${st.targetScore}" min="0" max="1" step="0.05" style="width:100%">
-          </div>
-          <div>
-            <label class="agent-field-label" style="margin-bottom:3px;display:block">Max Iterations</label>
-            <input type="number" id="maxIters" value="${st.maxIters}" min="1" max="10" step="1" style="width:100%">
-          </div>
-          <div>
-            <label class="agent-field-label" style="margin-bottom:3px;display:block">Model</label>
-            <select id="optimizerModel" style="width:100%;padding:6px 10px;background:var(--bg)" onchange="optimizerState.model=this.value;localStorage.setItem('arcana-optimizer-model',this.value)">
-              <option value="gpt-4o" ${st.model==='gpt-4o'?'selected':''}>gpt-4o</option>
-              <option value="gpt-4o-mini" ${st.model==='gpt-4o-mini'?'selected':''}>gpt-4o-mini</option>
-              <option value="gpt-4.1-mini" ${st.model==='gpt-4.1-mini'?'selected':''}>gpt-4.1-mini</option>
-              <option value="gpt-4.1" ${st.model==='gpt-4.1'?'selected':''}>gpt-4.1</option>
-            </select>
-          </div>
-          <div>
-            <label class="agent-field-label" style="margin-bottom:3px;display:block">Data Source</label>
-            <div class="upload-zone ${st.fileName ? 'active' : ''}" style="padding:6px 10px;border-width:1px;min-height:32px;display:flex;align-items:center;justify-content:center" onclick="document.getElementById('excelInput').click()">
-              <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelUpload(event)">
-              ${st.fileName
-                ? `<div style="color:var(--copper);font-size:.75rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${st.fileName}</div>`
-                : `<div style="font-size:.72rem;color:var(--text-dim)">Upload Excel/CSV</div>`}
-            </div>
-          </div>
-        </div>
-      </div>
-      ${st.preview ? `<div style="display:flex;gap:16px;align-items:center;padding:10px 0;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:.75rem">
-        <span style="color:var(--text-dim)">${st.preview.rowCount} rows</span>
-        <span style="color:var(--text-dim)">Columns: ${st.preview.inputCol ? '<span style="color:var(--green)">' + st.preview.inputCol + '</span>' : '<span style="color:var(--red)">input?</span>'}, ${st.preview.outputCol ? '<span style="color:var(--green)">' + st.preview.outputCol + '</span>' : '<span style="color:var(--red)">expected output?</span>'}${st.preview.commentsCol ? ', <span style="color:var(--text-secondary)">' + st.preview.commentsCol + '</span>' : ''}</span>
-        ${st.preview.agents.length ? '<span style="color:var(--copper)">Agents: ' + st.preview.agents.join(', ') + '</span>' : ''}
-      </div>
-      ${st.preview?.agents.length > 0 ? '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;margin-bottom:4px;font-size:.75rem"><label style="color:var(--text-dim);font-weight:500;white-space:nowrap">Optimize for Agent</label><select onchange="optimizerState.selectedAgent=this.value" style="flex:1;max-width:260px;font-family:\'DM Sans\',monospace;font-size:.78rem;border:1px solid var(--copper);border-radius:var(--radius-sm);padding:4px 8px;background:var(--bg);color:var(--text)">' + st.preview.agents.map(function(a){ return '<option value="' + a + '"' + (a === st.selectedAgent ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></div>' : ''}` : ''}
-      <div style="display:flex;align-items:end;gap:12px">
-        <div style="flex:1">
-          <label class="agent-field-label" style="margin-bottom:3px;display:block">OpenAI API Key <span style="color:var(--text-dim);font-weight:400">(stored locally, never sent to our servers)</span></label>
-          <input type="password" id="optimizerApiKey" value="${st.apiKey}" placeholder="sk-..." style="width:100%;font-family:'DM Sans',monospace;font-size:.78rem" onchange="optimizerState.apiKey=this.value;localStorage.setItem('arcana-openai-key',this.value)">
-        </div>
-        <button class="btn btn-ghost" style="padding:8px 14px;font-size:.82rem" onclick="saveCurrentPromptToLibrary()">
-          Save to Library
-        </button>
-        <button class="btn btn-primary" style="padding:8px 20px;font-size:.85rem" onclick="runOptimizer()" ${st.running ? 'disabled' : ''}>
-          ${st.running ? '<span style="display:inline-flex;align-items:center;gap:6px"><span class="spinner" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block"></span> Optimizing...</span>' : 'Run'}
-        </button>
-      </div>
-    </div>
-    ${st.running ? '<div id="optimizer-progress" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px"><div class="spinner" style="width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--copper);border-radius:50%;animation:spin .8s linear infinite"></div><span style="font-size:.88rem;color:var(--text)">Running optimization against backend...</span></div><div id="optimizer-elapsed" style="font-size:.72rem;color:var(--text-dim)">Sending data to LLM. This may take 15-30 seconds per row.</div></div>' : ''}
-
-    ${hasResults ? `
-    <!-- Score + metrics summary -->
-    <div class="stats-row anim-stagger" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
-      <div class="stat-card red"><div class="stat-label">Original Avg</div><div class="stat-value">${(origAvg*100).toFixed(0)}%</div><div class="stat-sub">before optimization</div></div>
-      <div class="stat-card green"><div class="stat-label">Optimized Avg</div><div class="stat-value">${(optAvg*100).toFixed(0)}%</div><div class="stat-sub">after optimization</div></div>
-      <div class="stat-card copper"><div class="stat-label">Improvement</div><div class="stat-value">+${improvement}%</div><div class="stat-sub">${st.results.reduce((s,r)=>s+r.iterations,0)} total iterations</div></div>
-    </div>
-    <div class="stats-row anim-stagger" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-      <div class="stat-card blue"><div class="stat-label">Rows Optimized</div><div class="stat-value">${st.results.length}</div><div class="stat-sub">${st.results.filter(r=>r.score>=st.targetScore).length} met target${st.summary?.agent_filter ? ' · ' + st.summary.agent_filter : ''}</div></div>
-      <div class="stat-card" style="border-color:var(--border)"><div class="stat-label">Total Latency</div><div class="stat-value">${st.summary?.total_latency_ms ? (st.summary.total_latency_ms/1000).toFixed(1) + 's' : '--'}</div><div class="stat-sub">${st.summary?.avg_latency_ms ? (st.summary.avg_latency_ms/1000).toFixed(1) + 's avg per row' : 'avg per row'}</div></div>
-      <div class="stat-card" style="border-color:var(--border)"><div class="stat-label">Total Cost</div><div class="stat-value">${st.summary?.total_cost_usd != null ? '$' + st.summary.total_cost_usd.toFixed(4) : '--'}</div><div class="stat-sub">${st.summary?.total_tokens ? st.summary.total_tokens.toLocaleString() + ' tokens' : 'tokens used'}</div></div>
-      <div class="stat-card" style="border-color:var(--border)"><div class="stat-label">Model</div><div class="stat-value" style="font-size:1rem">${st.summary?.model || st.model}</div><div class="stat-sub">${st.summary?.total_baseline_latency_ms ? 'baseline ' + (st.summary.total_baseline_latency_ms/1000).toFixed(1) + 's' : ''}</div></div>
-    </div>
-
-    <!-- ============ COMPARISON CHART ============ -->
-    <div class="metric-card" style="padding:20px;margin-bottom:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div>
-          <div class="section-heading" style="font-size:1rem;margin-bottom:2px">Score Comparison</div>
-          <div style="font-size:.72rem;color:var(--text-dim)">Original vs Optimized prompt similarity per row</div>
-        </div>
-        <div style="display:flex;gap:14px;font-size:.7rem;align-items:center">
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--red);opacity:.7"></span> Original</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--green)"></span> Optimized</span>
-        </div>
-      </div>
-      <div style="display:flex;align-items:flex-end;gap:${st.results.length > 8 ? '4' : '8'}px;height:160px;padding-bottom:24px;position:relative">
-        <div style="position:absolute;left:0;right:0;bottom:80px;height:1px;background:var(--border);opacity:.4"></div>
-        <div style="position:absolute;left:-2px;bottom:78px;font-size:.55rem;color:var(--text-dim)">50%</div>
-        ${st.results.map((r, i) => {
-          const origH = Math.max(4, (r.original_score || 0) * 140);
-          const optH = Math.max(4, r.score * 140);
-          const won = r.score > (r.original_score || 0);
-          return '<div style="flex:1;display:flex;gap:2px;align-items:flex-end;min-width:0">' +
-            '<div style="flex:1;height:' + origH + 'px;background:var(--red);opacity:.55;border-radius:2px 2px 0 0;min-width:0" title="Row ' + (i+1) + ' Original: ' + ((r.original_score||0)*100).toFixed(0) + '%"></div>' +
-            '<div style="flex:1;height:' + optH + 'px;background:var(--green);border-radius:2px 2px 0 0;min-width:0;' + (won ? 'box-shadow:0 0 8px rgba(74,222,128,.3)' : '') + '" title="Row ' + (i+1) + ' Optimized: ' + (r.score*100).toFixed(0) + '%"></div>' +
-          '</div>';
-        }).join('')}
-      </div>
-      <div style="display:flex;gap:${st.results.length > 8 ? '4' : '8'}px;border-top:1px solid var(--border);padding-top:6px">
-        ${st.results.map((r, i) => '<div style="flex:1;text-align:center;font-size:.58rem;color:var(--text-dim)">' + (i+1) + '</div>').join('')}
-      </div>
-    </div>
-
-    <!-- ============ PER-ROW LATENCY CHART ============ -->
-    ${st.results[0]?.latency_ms ? `
-    <div class="metric-card" style="padding:20px;margin-bottom:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div>
-          <div class="section-heading" style="font-size:1rem;margin-bottom:2px">Latency per Row</div>
-          <div style="font-size:.72rem;color:var(--text-dim)">Time spent on LLM calls (eval + optimizer iterations)</div>
-        </div>
-        <div style="font-size:.72rem;color:var(--text-dim)">avg ${st.summary?.avg_latency_ms ? (st.summary.avg_latency_ms/1000).toFixed(1) + 's' : ''}</div>
-      </div>
-      <div style="display:flex;align-items:flex-end;gap:${st.results.length > 8 ? '6' : '12'}px;height:100px;padding-bottom:24px">
-        ${st.results.map((r, i) => {
-          const maxLat = Math.max(...st.results.map(x => x.latency_ms || 1));
-          const h = Math.max(6, ((r.latency_ms || 0) / maxLat) * 90);
-          const latColor = (r.latency_ms || 0) > (st.summary?.avg_latency_ms || 99999) ? 'var(--yellow)' : 'var(--copper)';
-          return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0">' +
-            '<div style="font-size:.55rem;color:var(--text-dim)">' + ((r.latency_ms||0)/1000).toFixed(1) + 's</div>' +
-            '<div style="width:100%;height:' + h + 'px;background:' + latColor + ';border-radius:3px 3px 0 0;opacity:.8"></div>' +
-          '</div>';
-        }).join('')}
-      </div>
-      <div style="display:flex;gap:${st.results.length > 8 ? '6' : '12'}px;border-top:1px solid var(--border);padding-top:6px">
-        ${st.results.map((r, i) => '<div style="flex:1;text-align:center;font-size:.58rem;color:var(--text-dim)">R' + (i+1) + '</div>').join('')}
-      </div>
-    </div>` : ''}
-
-    <!-- ============ ORIGINAL PROMPT RESULTS ============ -->
-    <div class="section-heading" style="font-size:1.1rem;margin-bottom:8px;color:var(--red);display:flex;align-items:center;gap:8px">
-      <span style="width:10px;height:10px;border-radius:50%;background:var(--red);flex-shrink:0"></span>
-      Original Prompt Results
-    </div>
-    <div style="background:var(--red-dim);border:1px solid rgba(248,113,113,.15);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">
-      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--red);font-weight:600;margin-bottom:6px">Prompt Template Used</div>
-      <div style="font-family:'DM Sans',monospace;font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${st.promptTemplate}</div>
-      <div style="font-size:.72rem;color:var(--text-dim);margin-top:8px">Average similarity: ${(origAvg*100).toFixed(0)}%</div>
-    </div>
-    <div class="table-wrap" style="margin-bottom:24px">
-      <table>
-        <thead><tr><th style="width:30px">#</th><th>Input</th><th>Expected Output</th><th>LLM Response</th><th style="width:70px">Score</th></tr></thead>
-        <tbody>${st.results.map((r, i) => {
-          const origScore = r.original_score || 0;
-          const origColor = origScore >= 0.85 ? 'var(--green)' : origScore >= 0.6 ? 'var(--yellow)' : 'var(--red)';
-          return `<tr>
-            <td style="color:var(--text-dim);font-size:.75rem">${i+1}</td>
-            <td style="font-size:.8rem;max-width:200px">${truncText(r.input, 60)}</td>
-            <td style="font-size:.8rem;color:var(--copper);max-width:200px">${truncText(r.gold, 60)}</td>
-            <td style="font-size:.8rem;color:var(--text-secondary);max-width:200px">${truncText(r.original_output || '', 60)}</td>
-            <td><span style="font-family:var(--font-display);font-size:1rem;color:${origColor}">${(origScore*100).toFixed(0)}%</span></td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table>
-    </div>
-
-    <!-- ============ OPTIMIZED PROMPT RESULTS ============ -->
-    <div class="section-heading" style="font-size:1.1rem;margin-bottom:8px;color:var(--green);display:flex;align-items:center;gap:8px">
-      <span style="width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0"></span>
-      Optimized Prompt Results
-    </div>
-    <div style="background:var(--green-dim);border:1px solid rgba(74,222,128,.15);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">
-      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green);font-weight:600;margin-bottom:6px">Prompt Template Used</div>
-      <div style="font-family:'DM Sans',monospace;font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">${st.results[st.results.length-1].template}</div>
-      <div style="font-size:.72rem;color:var(--text-dim);margin-top:8px">Average similarity: ${(optAvg*100).toFixed(0)}%</div>
-    </div>
-    <div class="table-wrap" style="margin-bottom:24px">
-      <table>
-        <thead><tr><th style="width:30px">#</th><th>Input</th><th>Expected Output</th><th>LLM Response</th><th style="width:70px">Score</th><th style="width:60px">Delta</th><th style="width:70px">Latency</th><th style="width:60px">Cost</th></tr></thead>
-        <tbody>${st.results.map((r, i) => {
-          const origScore = r.original_score || 0;
-          const optColor = r.score >= 0.85 ? 'var(--green)' : r.score >= 0.6 ? 'var(--yellow)' : 'var(--red)';
-          const delta = ((r.score - origScore) * 100).toFixed(0);
-          const won = r.score > origScore;
-          return `<tr style="${won ? 'background:rgba(74,222,128,.03)' : ''}">
-            <td style="color:var(--text-dim);font-size:.75rem">${i+1}</td>
-            <td style="font-size:.8rem;max-width:200px">${truncText(r.input, 60)}</td>
-            <td style="font-size:.8rem;color:var(--copper);max-width:200px">${truncText(r.gold, 60)}</td>
-            <td style="font-size:.8rem;color:var(--text);max-width:200px">${truncText(r.output, 60)}</td>
-            <td><span style="font-family:var(--font-display);font-size:1rem;color:${optColor}">${(r.score*100).toFixed(0)}%</span></td>
-            <td><span style="font-size:.78rem;font-weight:600;color:${parseInt(delta)>=0?'var(--green)':'var(--red)'}">${parseInt(delta)>=0?'+':''}${delta}%</span></td>
-            <td style="font-size:.72rem;color:var(--text-dim)">${r.latency_ms ? (r.latency_ms/1000).toFixed(1) + 's' : '--'}</td>
-            <td style="font-size:.72rem;color:var(--text-dim)">${r.cost_usd != null ? '$' + r.cost_usd.toFixed(4) : '--'}</td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table>
-    </div>
-
-    <!-- ============ OPTIMIZED PROMPT (copyable) ============ -->
-    <div class="metric-card" style="padding:20px;border-color:rgba(74,222,128,.25);margin-bottom:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="font-family:var(--font-display);font-size:1.2rem;color:var(--green)">Optimized Prompt</div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="navigator.clipboard.writeText(optimizerState.results[optimizerState.results.length-1].template);this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
-          <button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="saveCurrentPromptToLibrary()">Save to Library</button>
-        </div>
-      </div>
-      <div style="font-family:'DM Sans',monospace;font-size:.88rem;color:var(--text);line-height:1.7;padding:16px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);white-space:pre-wrap">${st.results[st.results.length-1].template}</div>
-      <div style="display:flex;gap:16px;margin-top:12px;font-size:.75rem;color:var(--text-dim)">
-        <span>Avg score: <span style="color:var(--green)">${(optAvg*100).toFixed(0)}%</span> (was ${(origAvg*100).toFixed(0)}%)</span>
-        <span>Improvement: <span style="color:var(--green)">+${improvement}%</span></span>
-        <span>${st.results.reduce((s,r)=>s+r.iterations,0)} total iterations across ${st.results.length} rows</span>
-      </div>
-    </div>
-    ` : `
-    <!-- Empty state -->
-    <div class="metric-card" style="padding:0;overflow:hidden">
-      <div style="display:grid;grid-template-columns:1fr 1fr">
-        <div style="padding:30px;border-right:1px solid var(--border);text-align:center">
-          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--red);font-weight:600;margin-bottom:12px">Original Prompt Results</div>
-          <div style="color:var(--text-dim);font-size:.82rem">Run the optimizer to see the LLM output from your current prompt template</div>
-        </div>
-        <div style="padding:30px;text-align:center">
-          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green);font-weight:600;margin-bottom:12px">Optimized Prompt Results</div>
-          <div style="color:var(--text-dim);font-size:.82rem">The optimized prompt and its results will appear here</div>
-        </div>
-      </div>
-      <div style="padding:20px;border-top:1px solid var(--border);text-align:center;background:var(--surface)">
-        <div style="font-size:.82rem;color:var(--text-secondary);margin-bottom:8px">Upload an Excel/CSV file, enter your API key, and click Run</div>
-        <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:6px">Your file should have columns: <code style="background:var(--border);padding:1px 6px;border-radius:3px">input</code>, <code style="background:var(--border);padding:1px 6px;border-radius:3px">Expected Output</code>, and optionally <code style="background:var(--border);padding:1px 6px;border-radius:3px">comments</code></div>
-        <div style="font-size:.68rem;color:var(--text-dim)">Your prompt template is sent to the LLM for each row. The output is compared against the expected output. If below target, the prompt is iteratively refined.</div>
-      </div>
-    </div>
-    `}
-  `;
+    if (promptsPageState.view === 'detail') {
+      renderPromptDetail(promptsPageState.activePromptId);
+    } else {
+      renderPromptsTable();
+    }
   } catch (renderErr) {
     console.error('renderOptimizer error:', renderErr);
-    document.getElementById('page-optimizer').innerHTML = '<div style="padding:40px;text-align:center"><div class="section-heading" style="color:var(--red);margin-bottom:12px">Rendering Error</div><div style="font-size:.85rem;color:var(--text-secondary);margin-bottom:16px">' + renderErr.message + '</div><button class="btn btn-primary" onclick="optimizerState.results=[];optimizerState.summary=null;optimizerState.error=null;renderOptimizer()">Reset Optimizer</button></div>';
+    document.getElementById('page-optimizer').innerHTML = '<div style="padding:40px;text-align:center"><div class="section-heading" style="color:var(--red);margin-bottom:12px">Rendering Error</div><div style="font-size:.85rem;color:var(--text-secondary);margin-bottom:16px">' + renderErr.message + '</div><button class="btn btn-primary" onclick="promptsPageState.view=\'table\';renderOptimizer()">Back to Table</button></div>';
   }
 }
+
+function renderPromptsTable() {
+  var st = promptsPageState;
+  var prompts = getFilteredPrompts(st.filters, st.sortField, st.sortDir);
+  var allLabels = getAllLabels();
+  var hasPrompts = prompts.length > 0;
+  var lib = loadPromptLibrary();
+
+  // Gather unique agents and models for filter display
+  var uniqueAgents = {};
+  var uniqueModels = {};
+  lib.forEach(function(p) {
+    if (p.agentName) uniqueAgents[p.agentName] = true;
+    if (p.model) uniqueModels[p.model] = true;
+  });
+
+  var tableRows = prompts.map(function(p) {
+    var shortId = p.id.substring(0, 8);
+    var labelsHtml = (p.labels || []).map(function(l) { return '<span class="prompt-label">' + l + '</span>'; }).join('');
+    labelsHtml += '<span class="prompt-label-add" onclick="event.stopPropagation();addPromptLabel(\'' + p.id + '\')">+</span>';
+    return '<tr onclick="openPromptDetail(\'' + p.id + '\')" style="cursor:pointer">' +
+      '<td style="font-family:\'DM Sans\',monospace;font-size:.72rem;color:var(--text-dim)">' + shortId + '</td>' +
+      '<td style="width:36px;text-align:center"><button class="prompt-star' + (p.favorite ? ' active' : '') + '" onclick="event.stopPropagation();togglePromptFavorite(\'' + p.id + '\')">' + (p.favorite ? '\u2605' : '\u2606') + '</button></td>' +
+      '<td><div style="font-weight:500;font-size:.88rem">' + (p.name || 'Untitled') + '</div>' + (p.agentName ? '<div style="font-size:.7rem;color:var(--text-dim);margin-top:2px">' + p.agentName + '</div>' : '') + '</td>' +
+      '<td>' + labelsHtml + '</td>' +
+      '<td style="font-size:.78rem;color:var(--text-dim)">' + (p.model || '--') + '</td>' +
+      '<td style="font-size:.78rem;color:var(--text-dim)">' + formatPromptDate(p.updatedAt) + '</td>' +
+      '<td style="position:relative;width:40px;text-align:center"><button style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1.1rem;padding:4px 8px" onclick="event.stopPropagation();showPromptMenu(\'' + p.id + '\')">\u22EF</button>' +
+        (st.openMenuId === p.id ? '<div class="prompt-menu"><button class="prompt-menu-item" onclick="event.stopPropagation();promptMenuAction(\'edit\',\'' + p.id + '\')">Edit</button><button class="prompt-menu-item" onclick="event.stopPropagation();promptMenuAction(\'duplicate\',\'' + p.id + '\')">Duplicate</button><button class="prompt-menu-item danger" onclick="event.stopPropagation();promptMenuAction(\'delete\',\'' + p.id + '\')">Delete</button></div>' : '') +
+      '</td>' +
+    '</tr>';
+  }).join('');
+
+  // Active filter chips
+  var filterChips = '';
+  if (st.filters.favoritesOnly) {
+    filterChips += '<span class="chip active" onclick="setPromptFilter(\'favorite\',false)" style="cursor:pointer">\u2605 Favorites</span>';
+  }
+  (st.filters.labels || []).forEach(function(l) {
+    filterChips += '<span class="chip active" onclick="setPromptFilter(\'removeLabel\',\'' + l + '\')" style="cursor:pointer">' + l + ' \u00D7</span>';
+  });
+  if (st.filters.agent) {
+    filterChips += '<span class="chip active" onclick="setPromptFilter(\'agent\',null)" style="cursor:pointer">Agent: ' + st.filters.agent + ' \u00D7</span>';
+  }
+  if (st.filters.model) {
+    filterChips += '<span class="chip active" onclick="setPromptFilter(\'model\',null)" style="cursor:pointer">Model: ' + st.filters.model + ' \u00D7</span>';
+  }
+
+  document.getElementById('page-optimizer').innerHTML =
+    '<div class="prompt-topbar">' +
+      '<div class="prompt-topbar-left">' +
+        '<div class="section-heading" style="margin-bottom:0">Prompts</div>' +
+        '<span style="font-size:.82rem;color:var(--text-dim)">' + lib.length + ' total</span>' +
+      '</div>' +
+      '<button class="btn btn-primary" onclick="showNewPromptDialog()" style="gap:6px">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' +
+        'New prompt' +
+      '</button>' +
+    '</div>' +
+
+    '<div class="prompt-filter-row">' +
+      '<input type="text" class="prompt-search" placeholder="Search prompts..." value="' + (st.filters.search || '') + '" oninput="setPromptFilter(\'search\',this.value)">' +
+      '<span class="chip' + (st.filters.favoritesOnly ? ' active' : '') + '" onclick="setPromptFilter(\'favorite\',' + !st.filters.favoritesOnly + ')" style="cursor:pointer">\u2605 Favorites</span>' +
+      (allLabels.length ? allLabels.map(function(l) {
+        var isActive = (st.filters.labels || []).indexOf(l) !== -1;
+        return '<span class="chip' + (isActive ? ' active' : '') + '" onclick="setPromptFilter(\'' + (isActive ? 'removeLabel' : 'addLabel') + '\',\'' + l + '\')" style="cursor:pointer">' + l + '</span>';
+      }).join('') : '') +
+      (Object.keys(uniqueAgents).length ? '<select style="padding:4px 10px;border-radius:20px;font-size:.8rem;border:1px solid var(--border);background:var(--card);color:var(--text-secondary);cursor:pointer" onchange="setPromptFilter(\'agent\',this.value||null)"><option value="">All agents</option>' + Object.keys(uniqueAgents).map(function(a) { return '<option value="' + a + '"' + (st.filters.agent === a ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select>' : '') +
+      (Object.keys(uniqueModels).length ? '<select style="padding:4px 10px;border-radius:20px;font-size:.8rem;border:1px solid var(--border);background:var(--card);color:var(--text-secondary);cursor:pointer" onchange="setPromptFilter(\'model\',this.value||null)"><option value="">All models</option>' + Object.keys(uniqueModels).map(function(m) { return '<option value="' + m + '"' + (st.filters.model === m ? ' selected' : '') + '>' + m + '</option>'; }).join('') + '</select>' : '') +
+    '</div>' +
+
+    (filterChips ? '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">' + filterChips + '</div>' : '') +
+
+    (hasPrompts ?
+      '<div class="table-wrap">' +
+        '<table>' +
+          '<thead><tr>' +
+            '<th style="width:70px">ID</th>' +
+            '<th style="width:36px"></th>' +
+            '<th>Name</th>' +
+            '<th style="width:200px">Labels</th>' +
+            '<th style="width:90px">Model</th>' +
+            '<th style="width:80px">Date</th>' +
+            '<th style="width:40px"></th>' +
+          '</tr></thead>' +
+          '<tbody>' + tableRows + '</tbody>' +
+        '</table>' +
+      '</div>'
+    :
+      '<div class="empty-state" style="padding:80px 40px">' +
+        '<div class="empty-state-icon">\u270F\uFE0F</div>' +
+        '<h3>No prompts yet</h3>' +
+        '<p>Create your first prompt to start optimizing. Import from a workflow agent or upload an Excel dataset.</p>' +
+        '<button class="btn btn-primary" style="margin-top:18px" onclick="showNewPromptDialog()">+ New prompt</button>' +
+      '</div>'
+    );
+
+  // Close menu on outside click
+  if (st.openMenuId) {
+    setTimeout(function() {
+      document.addEventListener('click', closePromptMenuOnce);
+    }, 0);
+  }
+}
+
+function closePromptMenuOnce() {
+  promptsPageState.openMenuId = null;
+  document.removeEventListener('click', closePromptMenuOnce);
+  renderOptimizer();
+}
+
+function renderPromptDetail(promptId) {
+  var st = promptsPageState;
+  var lib = loadPromptLibrary();
+  var p = lib.find(function(pr) { return pr.id === promptId; });
+
+  if (!p) {
+    promptsPageState.view = 'table';
+    renderPromptsTable();
+    return;
+  }
+
+  var hasResults = st.results.length > 0;
+  var origAvg = st.summary?.original_avg || 0;
+  var optAvg = st.summary?.optimized_avg || 0;
+  var improvement = st.summary?.improvement?.toFixed(0) || 0;
+
+  // Agent names from data
+  var agentNames = {};
+  if (typeof getAllAgents === 'function') {
+    getAllAgents().forEach(function(a) { if (a.agent_name) agentNames[a.agent_name] = true; });
+  }
+  var agentOptions = Object.keys(agentNames).map(function(n) {
+    return '<option value="' + n + '"' + (p.agentName === n ? ' selected' : '') + '>' + n + '</option>';
+  }).join('');
+
+  var labelsHtml = (p.labels || []).map(function(l) {
+    return '<span class="prompt-label">' + l + ' <span style="cursor:pointer;margin-left:3px" onclick="removeDetailLabel(\'' + p.id + '\',\'' + l + '\')">\u00D7</span></span>';
+  }).join('') + '<span class="prompt-label-add" onclick="addPromptLabel(\'' + p.id + '\')">+ Label</span>';
+
+  // Build the detail view
+  var html =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">' +
+      '<div style="display:flex;align-items:center;gap:14px">' +
+        '<button class="btn-back" onclick="backToPromptsList()">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>' +
+          ' Back to all prompts' +
+        '</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button class="btn btn-ghost" onclick="savePromptDetail(\'' + p.id + '\')">Save</button>' +
+        '<button class="btn btn-primary" onclick="runOptimizer()" ' + (st.running ? 'disabled' : '') + '>' +
+          (st.running ? '<span style="display:inline-flex;align-items:center;gap:6px"><span class="spinner" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:inline-block"></span> Optimizing...</span>' : 'Run') +
+        '</button>' +
+      '</div>' +
+    '</div>' +
+
+    // Editable name
+    '<div style="margin-bottom:16px">' +
+      '<input type="text" id="detailPromptName" value="' + (p.name || '').replace(/"/g, '&quot;') + '" style="font-family:var(--font-display);font-size:1.8rem;border:none;background:transparent;color:var(--text);width:100%;padding:0;font-weight:400" placeholder="Prompt name">' +
+    '</div>' +
+
+    // Metadata bar
+    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap">' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+        '<span class="agent-field-label" style="margin:0;white-space:nowrap">Agent</span>' +
+        '<select id="detailAgent" style="padding:4px 10px;font-size:.8rem;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm)">' +
+          '<option value="">None</option>' + agentOptions +
+        '</select>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+        '<span class="agent-field-label" style="margin:0;white-space:nowrap">Model</span>' +
+        '<select id="detailModel" style="padding:4px 10px;font-size:.8rem;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm)" onchange="optimizerState.model=this.value;localStorage.setItem(\'arcana-optimizer-model\',this.value)">' +
+          '<option value="gpt-4o"' + (st.model === 'gpt-4o' ? ' selected' : '') + '>gpt-4o</option>' +
+          '<option value="gpt-4o-mini"' + (st.model === 'gpt-4o-mini' ? ' selected' : '') + '>gpt-4o-mini</option>' +
+          '<option value="gpt-4.1-mini"' + (st.model === 'gpt-4.1-mini' ? ' selected' : '') + '>gpt-4.1-mini</option>' +
+          '<option value="gpt-4.1"' + (st.model === 'gpt-4.1' ? ' selected' : '') + '>gpt-4.1</option>' +
+        '</select>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px">' + labelsHtml + '</div>' +
+      '<span style="font-size:.72rem;color:var(--text-dim);margin-left:auto">Updated ' + formatPromptDate(p.updatedAt) + '</span>' +
+    '</div>' +
+
+    (st.error ? '<div style="background:var(--red-dim);border:1px solid rgba(248,113,113,.3);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:.82rem;color:var(--red)">' + st.error + '</div>' : '') +
+
+    // Config section
+    '<div class="metric-card" style="margin-bottom:20px;padding:16px 20px">' +
+      '<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:14px">' +
+        '<div>' +
+          '<label class="agent-field-label" style="margin-bottom:4px;display:block">Prompt Template</label>' +
+          '<textarea id="promptTemplate" rows="3" style="font-size:.8rem" placeholder="Your prompt with {input} placeholder">' + (p.template || st.promptTemplate) + '</textarea>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+          '<div>' +
+            '<label class="agent-field-label" style="margin-bottom:3px;display:block">Target Score</label>' +
+            '<input type="number" id="targetScore" value="' + st.targetScore + '" min="0" max="1" step="0.05" style="width:100%">' +
+          '</div>' +
+          '<div>' +
+            '<label class="agent-field-label" style="margin-bottom:3px;display:block">Max Iterations</label>' +
+            '<input type="number" id="maxIters" value="' + st.maxIters + '" min="1" max="10" step="1" style="width:100%">' +
+          '</div>' +
+          (p.source === 'workflow'
+            ? '<div style="grid-column:span 2">' +
+                '<label class="agent-field-label" style="margin-bottom:3px;display:block">Source</label>' +
+                '<div style="padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;gap:8px;min-height:36px">' +
+                  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--copper)" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>' +
+                  '<span style="font-size:.78rem;color:var(--copper);font-weight:500">' + (p.workflowType ? p.workflowType.replace(/_/g, ' ') : 'Workflow') + '</span>' +
+                  (p.agentName ? '<span style="font-size:.72rem;color:var(--text-dim)">\u2014 ' + p.agentName + '</span>' : '') +
+                '</div>' +
+              '</div>'
+            : '<div style="grid-column:span 2">' +
+                '<label class="agent-field-label" style="margin-bottom:3px;display:block">Data Source</label>' +
+                '<div class="upload-zone ' + (st.fileName ? 'active' : '') + '" style="padding:8px 12px;border-width:1px;min-height:36px;display:flex;align-items:center;justify-content:center" onclick="document.getElementById(\'excelInput\').click()">' +
+                  '<input type="file" id="excelInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelUpload(event)">' +
+                  (st.fileName
+                    ? '<div style="color:var(--copper);font-size:.78rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + st.fileName + '</div>'
+                    : '<div style="font-size:.75rem;color:var(--text-dim)">Upload Excel/CSV</div>') +
+                '</div>' +
+              '</div>'
+          ) +
+        '</div>' +
+      '</div>' +
+      (st.preview ? '<div style="display:flex;gap:16px;align-items:center;padding:10px 0;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:.75rem">' +
+        '<span style="color:var(--text-dim)">' + st.preview.rowCount + ' rows</span>' +
+        '<span style="color:var(--text-dim)">Columns: ' + (st.preview.inputCol ? '<span style="color:var(--green)">' + st.preview.inputCol + '</span>' : '<span style="color:var(--red)">input?</span>') + ', ' + (st.preview.outputCol ? '<span style="color:var(--green)">' + st.preview.outputCol + '</span>' : '<span style="color:var(--red)">expected output?</span>') + (st.preview.commentsCol ? ', <span style="color:var(--text-secondary)">' + st.preview.commentsCol + '</span>' : '') + '</span>' +
+        (st.preview.agents.length ? '<span style="color:var(--copper)">Agents: ' + st.preview.agents.join(', ') + '</span>' : '') +
+      '</div>' +
+      (st.preview?.agents?.length > 0 ? '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;margin-bottom:4px;font-size:.75rem"><label style="color:var(--text-dim);font-weight:500;white-space:nowrap">Optimize for Agent</label><select onchange="optimizerState.selectedAgent=this.value" style="flex:1;max-width:260px;font-family:\'DM Sans\',monospace;font-size:.78rem;border:1px solid var(--copper);border-radius:var(--radius-sm);padding:4px 8px;background:var(--bg);color:var(--text)">' + st.preview.agents.map(function(a){ return '<option value="' + a + '"' + (a === st.selectedAgent ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></div>' : '') : '') +
+      '<div style="display:flex;align-items:end;gap:12px">' +
+        '<div style="flex:1">' +
+          '<label class="agent-field-label" style="margin-bottom:3px;display:block">OpenAI API Key <span style="color:var(--text-dim);font-weight:400">(stored locally)</span></label>' +
+          '<input type="password" id="optimizerApiKey" value="' + st.apiKey + '" placeholder="sk-..." style="width:100%;font-family:\'DM Sans\',monospace;font-size:.78rem" onchange="optimizerState.apiKey=this.value;localStorage.setItem(\'arcana-openai-key\',this.value)">' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    (st.running ? '<div id="optimizer-progress" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px"><div class="spinner" style="width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--copper);border-radius:50%;animation:spin .8s linear infinite"></div><span style="font-size:.88rem;color:var(--text)">Running optimization...</span></div><div id="optimizer-elapsed" style="font-size:.72rem;color:var(--text-dim)">Sending data to LLM. This may take 15-30 seconds per row.</div></div>' : '');
+
+  // Results section (reuse existing rendering logic)
+  if (hasResults) {
+    html += '<div class="stats-row anim-stagger" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">' +
+      '<div class="stat-card red"><div class="stat-label">Original Avg</div><div class="stat-value">' + (origAvg*100).toFixed(0) + '%</div><div class="stat-sub">before optimization</div></div>' +
+      '<div class="stat-card green"><div class="stat-label">Optimized Avg</div><div class="stat-value">' + (optAvg*100).toFixed(0) + '%</div><div class="stat-sub">after optimization</div></div>' +
+      '<div class="stat-card copper"><div class="stat-label">Improvement</div><div class="stat-value">+' + improvement + '%</div><div class="stat-sub">' + st.results.reduce(function(s,r){return s+r.iterations;},0) + ' total iterations</div></div>' +
+    '</div>';
+    html += '<div class="stats-row anim-stagger" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">' +
+      '<div class="stat-card blue"><div class="stat-label">Rows Optimized</div><div class="stat-value">' + st.results.length + '</div><div class="stat-sub">' + st.results.filter(function(r){return r.score>=st.targetScore;}).length + ' met target' + (st.summary?.agent_filter ? ' \u00B7 ' + st.summary.agent_filter : '') + '</div></div>' +
+      '<div class="stat-card" style="border-color:var(--border)"><div class="stat-label">Total Latency</div><div class="stat-value">' + (st.summary?.total_latency_ms ? (st.summary.total_latency_ms/1000).toFixed(1) + 's' : '--') + '</div><div class="stat-sub">' + (st.summary?.avg_latency_ms ? (st.summary.avg_latency_ms/1000).toFixed(1) + 's avg per row' : 'avg per row') + '</div></div>' +
+      '<div class="stat-card" style="border-color:var(--border)"><div class="stat-label">Total Cost</div><div class="stat-value">' + (st.summary?.total_cost_usd != null ? '$' + st.summary.total_cost_usd.toFixed(4) : '--') + '</div><div class="stat-sub">' + (st.summary?.total_tokens ? st.summary.total_tokens.toLocaleString() + ' tokens' : 'tokens used') + '</div></div>' +
+      '<div class="stat-card" style="border-color:var(--border)"><div class="stat-label">Model</div><div class="stat-value" style="font-size:1rem">' + (st.summary?.model || st.model) + '</div><div class="stat-sub">' + (st.summary?.total_baseline_latency_ms ? 'baseline ' + (st.summary.total_baseline_latency_ms/1000).toFixed(1) + 's' : '') + '</div></div>' +
+    '</div>';
+
+    // Score comparison chart
+    html += '<div class="metric-card" style="padding:20px;margin-bottom:20px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
+        '<div><div class="section-heading" style="font-size:1rem;margin-bottom:2px">Score Comparison</div><div style="font-size:.72rem;color:var(--text-dim)">Original vs Optimized per row</div></div>' +
+        '<div style="display:flex;gap:14px;font-size:.7rem;align-items:center"><span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--red);opacity:.7"></span> Original</span><span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--green)"></span> Optimized</span></div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:flex-end;gap:' + (st.results.length > 8 ? '4' : '8') + 'px;height:160px;padding-bottom:24px;position:relative">' +
+        '<div style="position:absolute;left:0;right:0;bottom:80px;height:1px;background:var(--border);opacity:.4"></div>' +
+        '<div style="position:absolute;left:-2px;bottom:78px;font-size:.55rem;color:var(--text-dim)">50%</div>' +
+        st.results.map(function(r, i) {
+          var origH = Math.max(4, (r.original_score || 0) * 140);
+          var optH = Math.max(4, r.score * 140);
+          var won = r.score > (r.original_score || 0);
+          return '<div style="flex:1;display:flex;gap:2px;align-items:flex-end;min-width:0"><div style="flex:1;height:' + origH + 'px;background:var(--red);opacity:.55;border-radius:2px 2px 0 0;min-width:0" title="Row ' + (i+1) + ' Original: ' + ((r.original_score||0)*100).toFixed(0) + '%"></div><div style="flex:1;height:' + optH + 'px;background:var(--green);border-radius:2px 2px 0 0;min-width:0;' + (won ? 'box-shadow:0 0 8px rgba(74,222,128,.3)' : '') + '" title="Row ' + (i+1) + ' Optimized: ' + (r.score*100).toFixed(0) + '%"></div></div>';
+        }).join('') +
+      '</div>' +
+      '<div style="display:flex;gap:' + (st.results.length > 8 ? '4' : '8') + 'px;border-top:1px solid var(--border);padding-top:6px">' +
+        st.results.map(function(r, i) { return '<div style="flex:1;text-align:center;font-size:.58rem;color:var(--text-dim)">' + (i+1) + '</div>'; }).join('') +
+      '</div>' +
+    '</div>';
+
+    // Per-row latency chart
+    if (st.results[0] && st.results[0].latency_ms) {
+      var maxLat = Math.max.apply(null, st.results.map(function(x) { return x.latency_ms || 1; }));
+      html += '<div class="metric-card" style="padding:20px;margin-bottom:20px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><div class="section-heading" style="font-size:1rem;margin-bottom:2px">Latency per Row</div><div style="font-size:.72rem;color:var(--text-dim)">Time spent on LLM calls</div></div><div style="font-size:.72rem;color:var(--text-dim)">avg ' + (st.summary?.avg_latency_ms ? (st.summary.avg_latency_ms/1000).toFixed(1) + 's' : '') + '</div></div>' +
+        '<div style="display:flex;align-items:flex-end;gap:' + (st.results.length > 8 ? '6' : '12') + 'px;height:100px;padding-bottom:24px">' +
+          st.results.map(function(r) {
+            var h = Math.max(6, ((r.latency_ms || 0) / maxLat) * 90);
+            var latColor = (r.latency_ms || 0) > (st.summary?.avg_latency_ms || 99999) ? 'var(--yellow)' : 'var(--copper)';
+            return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0"><div style="font-size:.55rem;color:var(--text-dim)">' + ((r.latency_ms||0)/1000).toFixed(1) + 's</div><div style="width:100%;height:' + h + 'px;background:' + latColor + ';border-radius:3px 3px 0 0;opacity:.8"></div></div>';
+          }).join('') +
+        '</div>' +
+        '<div style="display:flex;gap:' + (st.results.length > 8 ? '6' : '12') + 'px;border-top:1px solid var(--border);padding-top:6px">' +
+          st.results.map(function(r, i) { return '<div style="flex:1;text-align:center;font-size:.58rem;color:var(--text-dim)">R' + (i+1) + '</div>'; }).join('') +
+        '</div>' +
+      '</div>';
+    }
+
+    // Original prompt results table
+    html += '<div class="section-heading" style="font-size:1.1rem;margin-bottom:8px;color:var(--red);display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:var(--red);flex-shrink:0"></span>Original Prompt Results</div>' +
+      '<div style="background:var(--red-dim);border:1px solid rgba(248,113,113,.15);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">' +
+        '<div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--red);font-weight:600;margin-bottom:6px">Prompt Template Used</div>' +
+        '<div style="font-family:\'DM Sans\',monospace;font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">' + st.promptTemplate + '</div>' +
+        '<div style="font-size:.72rem;color:var(--text-dim);margin-top:8px">Average similarity: ' + (origAvg*100).toFixed(0) + '%</div>' +
+      '</div>' +
+      '<div class="table-wrap" style="margin-bottom:24px"><table><thead><tr><th style="width:30px">#</th><th>Input</th><th>Expected Output</th><th>LLM Response</th><th style="width:70px">Score</th></tr></thead><tbody>' +
+      st.results.map(function(r, i) {
+        var os = r.original_score || 0;
+        var oc = os >= 0.85 ? 'var(--green)' : os >= 0.6 ? 'var(--yellow)' : 'var(--red)';
+        return '<tr><td style="color:var(--text-dim);font-size:.75rem">' + (i+1) + '</td><td style="font-size:.8rem;max-width:200px">' + truncText(r.input, 60) + '</td><td style="font-size:.8rem;color:var(--copper);max-width:200px">' + truncText(r.gold, 60) + '</td><td style="font-size:.8rem;color:var(--text-secondary);max-width:200px">' + truncText(r.original_output || '', 60) + '</td><td><span style="font-family:var(--font-display);font-size:1rem;color:' + oc + '">' + (os*100).toFixed(0) + '%</span></td></tr>';
+      }).join('') +
+      '</tbody></table></div>';
+
+    // Optimized prompt results table
+    html += '<div class="section-heading" style="font-size:1.1rem;margin-bottom:8px;color:var(--green);display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0"></span>Optimized Prompt Results</div>' +
+      '<div style="background:var(--green-dim);border:1px solid rgba(74,222,128,.15);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">' +
+        '<div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green);font-weight:600;margin-bottom:6px">Prompt Template Used</div>' +
+        '<div style="font-family:\'DM Sans\',monospace;font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">' + st.results[st.results.length-1].template + '</div>' +
+        '<div style="font-size:.72rem;color:var(--text-dim);margin-top:8px">Average similarity: ' + (optAvg*100).toFixed(0) + '%</div>' +
+      '</div>' +
+      '<div class="table-wrap" style="margin-bottom:24px"><table><thead><tr><th style="width:30px">#</th><th>Input</th><th>Expected Output</th><th>LLM Response</th><th style="width:70px">Score</th><th style="width:60px">Delta</th><th style="width:70px">Latency</th><th style="width:60px">Cost</th></tr></thead><tbody>' +
+      st.results.map(function(r, i) {
+        var os = r.original_score || 0;
+        var oc = r.score >= 0.85 ? 'var(--green)' : r.score >= 0.6 ? 'var(--yellow)' : 'var(--red)';
+        var delta = ((r.score - os) * 100).toFixed(0);
+        var won = r.score > os;
+        return '<tr style="' + (won ? 'background:rgba(74,222,128,.03)' : '') + '"><td style="color:var(--text-dim);font-size:.75rem">' + (i+1) + '</td><td style="font-size:.8rem;max-width:200px">' + truncText(r.input, 60) + '</td><td style="font-size:.8rem;color:var(--copper);max-width:200px">' + truncText(r.gold, 60) + '</td><td style="font-size:.8rem;color:var(--text);max-width:200px">' + truncText(r.output, 60) + '</td><td><span style="font-family:var(--font-display);font-size:1rem;color:' + oc + '">' + (r.score*100).toFixed(0) + '%</span></td><td><span style="font-size:.78rem;font-weight:600;color:' + (parseInt(delta)>=0 ? 'var(--green)' : 'var(--red)') + '">' + (parseInt(delta)>=0 ? '+' : '') + delta + '%</span></td><td style="font-size:.72rem;color:var(--text-dim)">' + (r.latency_ms ? (r.latency_ms/1000).toFixed(1) + 's' : '--') + '</td><td style="font-size:.72rem;color:var(--text-dim)">' + (r.cost_usd != null ? '$' + r.cost_usd.toFixed(4) : '--') + '</td></tr>';
+      }).join('') +
+      '</tbody></table></div>';
+
+    // Copyable optimized prompt
+    html += '<div class="metric-card" style="padding:20px;border-color:rgba(74,222,128,.25);margin-bottom:20px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+        '<div style="font-family:var(--font-display);font-size:1.2rem;color:var(--green)">Optimized Prompt</div>' +
+        '<div style="display:flex;gap:8px">' +
+          '<button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="navigator.clipboard.writeText(optimizerState.results[optimizerState.results.length-1].template);this.textContent=\'Copied!\';setTimeout(function(){this.textContent=\'Copy\'},1500)">Copy</button>' +
+          '<button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="saveCurrentPromptToLibrary()">Save to Library</button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="font-family:\'DM Sans\',monospace;font-size:.88rem;color:var(--text);line-height:1.7;padding:16px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);white-space:pre-wrap">' + st.results[st.results.length-1].template + '</div>' +
+      '<div style="display:flex;gap:16px;margin-top:12px;font-size:.75rem;color:var(--text-dim)">' +
+        '<span>Avg score: <span style="color:var(--green)">' + (optAvg*100).toFixed(0) + '%</span> (was ' + (origAvg*100).toFixed(0) + '%)</span>' +
+        '<span>Improvement: <span style="color:var(--green)">+' + improvement + '%</span></span>' +
+        '<span>' + st.results.reduce(function(s,r){return s+r.iterations;},0) + ' total iterations across ' + st.results.length + ' rows</span>' +
+      '</div>' +
+    '</div>';
+  } else {
+    // Empty state for detail view
+    html += '<div class="metric-card" style="padding:0;overflow:hidden">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr">' +
+        '<div style="padding:30px;border-right:1px solid var(--border);text-align:center">' +
+          '<div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--red);font-weight:600;margin-bottom:12px">Original Prompt Results</div>' +
+          '<div style="color:var(--text-dim);font-size:.82rem">Run the optimizer to see LLM output from your current prompt template</div>' +
+        '</div>' +
+        '<div style="padding:30px;text-align:center">' +
+          '<div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green);font-weight:600;margin-bottom:12px">Optimized Prompt Results</div>' +
+          '<div style="color:var(--text-dim);font-size:.82rem">The optimized prompt and its results will appear here</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="padding:20px;border-top:1px solid var(--border);text-align:center;background:var(--surface)">' +
+        '<div style="font-size:.82rem;color:var(--text-secondary);margin-bottom:8px">Upload an Excel/CSV file, enter your API key, and click Run</div>' +
+        '<div style="font-size:.72rem;color:var(--text-dim)">Your file should have columns: <code style="background:var(--border);padding:1px 6px;border-radius:3px">input</code>, <code style="background:var(--border);padding:1px 6px;border-radius:3px">Expected Output</code></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  document.getElementById('page-optimizer').innerHTML = html;
+}
+
+// ===== PROMPT TABLE ACTIONS =====
+
+function togglePromptFavorite(promptId) {
+  toggleFavorite(promptId);
+  renderOptimizer();
+}
+
+function showPromptMenu(promptId) {
+  promptsPageState.openMenuId = promptsPageState.openMenuId === promptId ? null : promptId;
+  renderOptimizer();
+}
+
+function closePromptMenu() {
+  promptsPageState.openMenuId = null;
+  renderOptimizer();
+}
+
+function promptMenuAction(action, promptId) {
+  promptsPageState.openMenuId = null;
+  if (action === 'edit') {
+    openPromptDetail(promptId);
+  } else if (action === 'duplicate') {
+    duplicatePrompt(promptId);
+    renderOptimizer();
+  } else if (action === 'delete') {
+    if (confirm('Delete this prompt?')) {
+      deletePrompt(promptId);
+      renderOptimizer();
+    }
+  }
+}
+
+function openPromptDetail(promptId) {
+  var lib = loadPromptLibrary();
+  var p = lib.find(function(pr) { return pr.id === promptId; });
+  if (p) {
+    promptsPageState.view = 'detail';
+    promptsPageState.activePromptId = promptId;
+    promptsPageState.promptTemplate = p.template || promptsPageState.promptTemplate;
+    promptsPageState.results = [];
+    promptsPageState.summary = null;
+    promptsPageState.error = null;
+  }
+  renderOptimizer();
+}
+
+function backToPromptsList() {
+  promptsPageState.view = 'table';
+  promptsPageState.activePromptId = null;
+  promptsPageState.openMenuId = null;
+  renderOptimizer();
+}
+
+function savePromptDetail(promptId) {
+  var name = document.getElementById('detailPromptName')?.value?.trim();
+  var agent = document.getElementById('detailAgent')?.value || '';
+  var model = document.getElementById('detailModel')?.value || null;
+  var template = document.getElementById('promptTemplate')?.value?.trim();
+  updatePrompt(promptId, { name: name, agentName: agent, model: model, template: template });
+  promptsPageState.promptTemplate = template || promptsPageState.promptTemplate;
+  // Show brief feedback
+  var btn = event?.target;
+  if (btn) { var orig = btn.textContent; btn.textContent = 'Saved!'; setTimeout(function() { btn.textContent = orig; }, 1200); }
+}
+
+function setPromptFilter(type, value) {
+  var f = promptsPageState.filters;
+  if (type === 'search') f.search = value;
+  else if (type === 'favorite') f.favoritesOnly = value;
+  else if (type === 'addLabel') { if (f.labels.indexOf(value) === -1) f.labels.push(value); }
+  else if (type === 'removeLabel') { f.labels = f.labels.filter(function(l) { return l !== value; }); }
+  else if (type === 'agent') f.agent = value;
+  else if (type === 'model') f.model = value;
+  renderOptimizer();
+}
+
+function addPromptLabel(promptId) {
+  var label = window.prompt('Label name:');
+  if (!label || !label.trim()) return;
+  label = label.trim();
+  var lib = loadPromptLibrary().map(function(p) {
+    if (p.id === promptId) {
+      if (!Array.isArray(p.labels)) p.labels = [];
+      if (p.labels.indexOf(label) === -1) p.labels.push(label);
+    }
+    return p;
+  });
+  savePromptLibrary(lib);
+  renderOptimizer();
+}
+
+function removeDetailLabel(promptId, label) {
+  var lib = loadPromptLibrary().map(function(p) {
+    if (p.id === promptId) {
+      p.labels = (p.labels || []).filter(function(l) { return l !== label; });
+    }
+    return p;
+  });
+  savePromptLibrary(lib);
+  renderOptimizer();
+}
+
+// ===== NEW PROMPT DIALOG =====
+var newPromptSource = null;
+
+function showNewPromptDialog() {
+  newPromptSource = null;
+  var overlay = document.createElement('div');
+  overlay.id = 'new-prompt-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+
+  // Agent names from data
+  var agentNames = {};
+  if (typeof getAllAgents === 'function') {
+    getAllAgents().forEach(function(a) { if (a.agent_name) agentNames[a.agent_name] = true; });
+  }
+  var agentOptions = Object.keys(agentNames).map(function(n) {
+    return '<option value="' + n + '">' + n + '</option>';
+  }).join('');
+
+  var dialog = document.createElement('div');
+  dialog.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);width:560px;max-width:90vw;max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5)';
+
+  dialog.innerHTML =
+    '<div style="padding:24px;border-bottom:1px solid var(--border)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between">' +
+        '<div style="font-family:var(--font-display);font-size:1.4rem;color:var(--copper)">Create New Prompt</div>' +
+        '<button onclick="closeNewPromptDialog()" style="background:none;border:none;color:var(--text-dim);font-size:1.5rem;cursor:pointer;padding:0;width:30px;height:30px">&times;</button>' +
+      '</div>' +
+    '</div>' +
+    '<div style="padding:24px">' +
+      '<div style="margin-bottom:16px">' +
+        '<label class="agent-field-label" style="display:block;margin-bottom:6px">Prompt Name</label>' +
+        '<input type="text" id="newPromptName" placeholder="e.g. Customer Support v2" style="width:100%;padding:10px;background:var(--bg)">' +
+      '</div>' +
+
+      '<label class="agent-field-label" style="display:block;margin-bottom:8px">Data Source</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">' +
+        '<div class="new-prompt-card" id="src-agent" onclick="selectNewPromptSource(\'agent\')">' +
+          '<div style="font-size:1.6rem;margin-bottom:8px">\uD83E\uDD16</div>' +
+          '<div style="font-weight:500;font-size:.9rem;margin-bottom:4px">From Workflow</div>' +
+          '<div style="font-size:.72rem;color:var(--text-dim)">Select a workflow, then pick an agent</div>' +
+        '</div>' +
+        '<div class="new-prompt-card" id="src-excel" onclick="selectNewPromptSource(\'excel\')">' +
+          '<div style="font-size:1.6rem;margin-bottom:8px">\uD83D\uDCC4</div>' +
+          '<div style="font-weight:500;font-size:.9rem;margin-bottom:4px">From Excel</div>' +
+          '<div style="font-size:.72rem;color:var(--text-dim)">Upload a CSV/Excel test dataset</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div id="newPromptSourceConfig"></div>' +
+
+      '<div style="margin-bottom:16px">' +
+        '<label class="agent-field-label" style="display:block;margin-bottom:6px">Template</label>' +
+        '<textarea id="newPromptTemplate" rows="3" placeholder="You are a helpful assistant. {input}" style="width:100%">You are a helpful assistant. {input}</textarea>' +
+      '</div>' +
+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">' +
+        '<div>' +
+          '<label class="agent-field-label" style="display:block;margin-bottom:6px">Notes</label>' +
+          '<input type="text" id="newPromptNotes" placeholder="Optional notes" style="width:100%;padding:8px">' +
+        '</div>' +
+        '<div>' +
+          '<label class="agent-field-label" style="display:block;margin-bottom:6px">Labels (comma-separated)</label>' +
+          '<input type="text" id="newPromptLabels" placeholder="e.g. production, v2" style="width:100%;padding:8px">' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--border)">' +
+        '<button class="btn btn-ghost" onclick="closeNewPromptDialog()">Cancel</button>' +
+        '<button class="btn btn-primary" onclick="createNewPrompt()">Create</button>' +
+      '</div>' +
+    '</div>';
+
+  overlay.appendChild(dialog);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) closeNewPromptDialog(); });
+  document.body.appendChild(overlay);
+}
+
+function selectNewPromptSource(source) {
+  newPromptSource = source;
+  var agentCard = document.getElementById('src-agent');
+  var excelCard = document.getElementById('src-excel');
+  if (agentCard) agentCard.className = 'new-prompt-card' + (source === 'agent' ? ' selected' : '');
+  if (excelCard) excelCard.className = 'new-prompt-card' + (source === 'excel' ? ' selected' : '');
+
+  var configEl = document.getElementById('newPromptSourceConfig');
+  if (!configEl) return;
+
+  if (source === 'agent') {
+    // Workflow → Agent cascade: first fetch topologies from backend, fallback to hardcoded list
+    configEl.innerHTML = '<div style="margin-bottom:16px"><label class="agent-field-label" style="display:block;margin-bottom:6px">Select Workflow</label>' +
+      '<select id="newPromptWorkflow" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)" onchange="onNewPromptWorkflowChange()">' +
+        '<option value="">Choose a workflow...</option>' +
+        '<option value="trip_booking">Trip Booking (6 agents)</option>' +
+        '<option value="finance_research">Finance Research (6 agents)</option>' +
+        '<option value="refund_request">Refund Request (3 agents)</option>' +
+        '<option value="quote_generation">Quote Generation (4 agents)</option>' +
+      '</select></div>' +
+      '<div id="newPromptAgentWrap"></div>';
+    // Try to fetch live topologies for agent names
+    fetch('http://localhost:5000/api/workflow/topologies', { signal: AbortSignal.timeout(3000) })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) { if (data) window._workflowTopologies = data; })
+      .catch(function() {});
+  } else if (source === 'excel') {
+    configEl.innerHTML = '<div style="margin-bottom:16px"><label class="agent-field-label" style="display:block;margin-bottom:6px">Upload Dataset</label>' +
+      '<div class="upload-zone" style="padding:16px" onclick="document.getElementById(\'newPromptFile\').click()">' +
+        '<input type="file" id="newPromptFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelUpload(event)">' +
+        '<div style="font-size:.82rem;color:var(--text-dim)">\uD83D\uDCC1 Click to upload Excel/CSV</div>' +
+      '</div></div>';
+  } else {
+    configEl.innerHTML = '';
+  }
+}
+
+function onNewPromptWorkflowChange() {
+  var wfType = document.getElementById('newPromptWorkflow')?.value;
+  var wrap = document.getElementById('newPromptAgentWrap');
+  if (!wrap) return;
+  if (!wfType) { wrap.innerHTML = ''; return; }
+
+  var agents = [];
+  // Use live data if available, else fallback
+  if (window._workflowTopologies && window._workflowTopologies[wfType]) {
+    agents = window._workflowTopologies[wfType];
+  } else {
+    // Hardcoded fallback
+    var fallback = {
+      trip_booking: ['FlightSearch','BookingAgent','HotelAgent','PaymentAgent','SummaryAgent','ConfirmationAgent'],
+      finance_research: ['MarketDataAgent','EarningsAnalyst','SentimentAnalyst','RiskAssessment','PortfolioRecommendation','ReportGenerator'],
+      refund_request: ['RAGAgent','DocVerification','EscalationAgent'],
+      quote_generation: ['DataGather','PricingCalc','RiskAssess','QuoteAggregator']
+    };
+    agents = (fallback[wfType] || []).map(function(n) { return { name: n, role: '' }; });
+  }
+
+  var opts = agents.map(function(a) {
+    var label = a.name + (a.role ? ' \u2014 ' + a.role : '');
+    return '<option value="' + a.name + '">' + label + '</option>';
+  }).join('');
+
+  wrap.innerHTML = '<div style="margin-bottom:16px"><label class="agent-field-label" style="display:block;margin-bottom:6px">Select Agent</label>' +
+    '<select id="newPromptAgent" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">' +
+      '<option value="">Choose an agent...</option>' + opts +
+    '</select></div>';
+}
+window.onNewPromptWorkflowChange = onNewPromptWorkflowChange;
+
+function closeNewPromptDialog() {
+  var overlay = document.getElementById('new-prompt-overlay');
+  if (overlay) overlay.remove();
+  newPromptSource = null;
+}
+
+function createNewPrompt() {
+  var name = document.getElementById('newPromptName')?.value?.trim();
+  if (!name) { alert('Please enter a prompt name.'); return; }
+
+  var template = document.getElementById('newPromptTemplate')?.value?.trim() || 'You are a helpful assistant. {input}';
+  var notes = document.getElementById('newPromptNotes')?.value?.trim() || '';
+  var labelsRaw = document.getElementById('newPromptLabels')?.value?.trim() || '';
+  var labels = labelsRaw ? labelsRaw.split(',').map(function(l) { return l.trim(); }).filter(Boolean) : [];
+  var agent = '';
+  var source = newPromptSource === 'agent' ? 'workflow' : 'excel';
+  var workflowType = null;
+  if (newPromptSource === 'agent') {
+    agent = document.getElementById('newPromptAgent')?.value || '';
+    workflowType = document.getElementById('newPromptWorkflow')?.value || null;
+  }
+
+  var lib = addPrompt(name, agent, template, notes, labels, false, promptsPageState.model, source, workflowType);
+  var newId = lib[lib.length - 1].id;
+
+  closeNewPromptDialog();
+  openPromptDetail(newId);
+}
+
+// Window bindings
 window.renderOptimizer = renderOptimizer;
+window.togglePromptFavorite = togglePromptFavorite;
+window.showPromptMenu = showPromptMenu;
+window.closePromptMenu = closePromptMenu;
+window.promptMenuAction = promptMenuAction;
+window.openPromptDetail = openPromptDetail;
+window.backToPromptsList = backToPromptsList;
+window.savePromptDetail = savePromptDetail;
+window.setPromptFilter = setPromptFilter;
+window.showNewPromptDialog = showNewPromptDialog;
+window.closeNewPromptDialog = closeNewPromptDialog;
+window.createNewPrompt = createNewPrompt;
+window.selectNewPromptSource = selectNewPromptSource;
+window.addPromptLabel = addPromptLabel;
+window.removeDetailLabel = removeDetailLabel;
 
 async function handleExcelUpload(event) {
   const file = event.target.files[0];
@@ -2394,7 +3153,9 @@ async function handleExcelUpload(event) {
     // Preview failed — will show error at run time
   }
 
-  renderOptimizer();
+  if (!document.getElementById('new-prompt-overlay')) {
+    renderOptimizer();
+  }
 }
 window.handleExcelUpload = handleExcelUpload;
 
@@ -2405,14 +3166,22 @@ async function runOptimizer() {
   var apiKey = document.getElementById('optimizerApiKey')?.value || optimizerState.apiKey;
   var model = document.getElementById('optimizerModel')?.value || optimizerState.model;
 
+  // Check if this is a workflow-sourced prompt (no Excel required)
+  var activePrompt = null;
+  if (promptsPageState.activePromptId) {
+    var pLib = loadPromptLibrary();
+    activePrompt = pLib.find(function(pp) { return pp.id === promptsPageState.activePromptId; });
+  }
+  var isWorkflowSource = activePrompt && activePrompt.source === 'workflow';
+
   // Use stored File object (DOM input is destroyed on re-render)
   var uploadedFile = optimizerState.file;
-  if (!uploadedFile) {
+  if (!uploadedFile && !isWorkflowSource) {
     alert('Please upload an Excel or CSV file with your test data.');
     return;
   }
 
-  if (!template || !template.includes('{input}')) {
+  if (!isWorkflowSource && !template.includes('{input}')) {
     alert('Please provide a prompt template with {input} placeholder.');
     return;
   }
@@ -2433,6 +3202,124 @@ async function runOptimizer() {
   localStorage.setItem('arcana-optimizer-model', model);
   optimizerState.running = true;
   renderOptimizer();
+
+  // Workflow-sourced prompt: run the workflow with this prompt as an override
+  if (isWorkflowSource && activePrompt) {
+    var wfAgent = activePrompt.agentName || '';
+    var wfType = activePrompt.workflowType || 'finance_research';
+    var overrides = {};
+    if (wfAgent) overrides[wfAgent] = template;
+
+    // Use a real goal: from pipeline state, or ask the user
+    var wfGoal = pipelineState.userGoal || '';
+    if (!wfGoal) {
+      wfGoal = window.prompt('Enter the goal for this workflow run:');
+      if (!wfGoal) { optimizerState.running = false; renderOptimizer(); return; }
+    }
+
+    var startTime = Date.now();
+    var timerInterval = setInterval(function() {
+      var el = document.getElementById('optimizer-elapsed');
+      if (el) {
+        var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+        el.textContent = 'Elapsed: ' + elapsed + 's — Running workflow with prompt override...';
+      }
+    }, 1000);
+
+    try {
+      var wfResp = await fetch('http://localhost:5000/api/workflow/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflow_type: wfType,
+          goal: wfGoal,
+          config: { prompt_overrides: overrides }
+        })
+      });
+
+      if (!wfResp.ok) {
+        var errBody = await wfResp.json().catch(function() { return {}; });
+        throw new Error(errBody.error || 'Workflow request failed: ' + wfResp.status);
+      }
+
+      var wfReader = wfResp.body.getReader();
+      var decoder = new TextDecoder();
+      var wfBuffer = '';
+      var finalJourney = null;
+      var newTraceId = '';
+
+      while (true) {
+        var chunk = await wfReader.read();
+        if (chunk.done) break;
+        wfBuffer += decoder.decode(chunk.value, { stream: true });
+        var parts = wfBuffer.split('\n\n');
+        wfBuffer = parts.pop() || '';
+        for (var pi = 0; pi < parts.length; pi++) {
+          var eventData = null;
+          var evtLines = parts[pi].split('\n');
+          for (var li = 0; li < evtLines.length; li++) {
+            if (evtLines[li].indexOf('data: ') === 0) {
+              try { eventData = JSON.parse(evtLines[li].slice(6)); } catch (_) {}
+            }
+          }
+          if (!eventData) continue;
+          var evtType = eventData.type;
+          var evtPayload = eventData.data;
+          if (evtType === 'agent_start') {
+            var el = document.getElementById('optimizer-elapsed');
+            if (el) {
+              var isOverridden = evtPayload.name === wfAgent ? ' (optimized prompt)' : '';
+              el.textContent = evtPayload.name + isOverridden + ' — ' + evtPayload.completed + '/' + evtPayload.total + ' agents';
+            }
+          } else if (evtType === 'agent_done') {
+            var el = document.getElementById('optimizer-elapsed');
+            if (el) {
+              var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+              el.textContent = 'Elapsed: ' + elapsed + 's — ' + evtPayload.name + ' done (' + evtPayload.completed + '/' + evtPayload.total + ')';
+            }
+          } else if (evtType === 'complete') {
+            newTraceId = evtPayload.trace_id;
+            finalJourney = evtPayload.journey;
+          }
+        }
+      }
+
+      if (!finalJourney) throw new Error('Stream ended without completion');
+
+      // Persist journey so it appears in DAG viewer
+      if (finalJourney.samples) {
+        if (typeof ensureAgentIds === 'function') ensureAgentIds(finalJourney);
+        journeys.push(finalJourney);
+        DATA.journeys.push(finalJourney);
+        dataLoaded = true;
+      }
+
+      var wfSamples = finalJourney.samples || [];
+      optimizerState.results = wfSamples.map(function(s, idx) {
+        return {
+          row_index: idx,
+          input: s.agent_name || s.input || '',
+          gold: wfGoal,
+          output: s.output || (s.core_payload && s.core_payload.completion_message) || '',
+          score: 0, iterations: 1, template: template,
+          original_output: '', original_score: 0
+        };
+      });
+      optimizerState.summary = {
+        total_rows: wfSamples.length,
+        original_avg: 0, optimized_avg: 0,
+        improvement: 0, model: model,
+        workflow_run: true, trace_id: newTraceId
+      };
+      optimizerState.error = null;
+    } catch (wfErr) {
+      optimizerState.error = 'Workflow run failed: ' + wfErr.message;
+    }
+    optimizerState.running = false;
+    clearInterval(timerInterval);
+    renderOptimizer();
+    return;
+  }
 
   // Start elapsed timer
   var startTime = Date.now();
@@ -2471,6 +3358,7 @@ async function runOptimizer() {
         formData.append('agent_filter', optimizerState.selectedAgent);
       }
 
+      // Submit optimization task (returns immediately with task_id)
       var response = await fetch('http://localhost:5000/api/optimizer/run', {
         method: 'POST',
         body: formData
@@ -2482,23 +3370,62 @@ async function runOptimizer() {
         throw new Error('Server returned ' + response.status + ': ' + errBody);
       }
 
-      var result = await response.json();
-      if (!result.success) throw new Error(result.error || 'Optimization failed');
-      if (!result.results || !result.results.length) throw new Error('No results returned from backend');
+      var enqueued = await response.json();
+      var taskId = enqueued.task_id;
+      if (!taskId) throw new Error('No task_id returned from server');
 
-      optimizerState.results = result.results.map(function(r) { return {
-        row_index: r.row_index, input: r.input, gold: r.gold, output: r.output,
-        score: r.score, iterations: r.iterations, template: r.template,
-        comments: r.comments, original_output: r.original_output, original_score: r.original_score,
-        latency_ms: r.latency_ms, original_latency_ms: r.original_latency_ms,
-        prompt_tokens: r.prompt_tokens, completion_tokens: r.completion_tokens,
-        total_tokens: r.total_tokens, cost_usd: r.cost_usd
-      }; });
-      optimizerState.summary = result.summary;
-      optimizerState.error = null;
-      optimizerState.running = false;
-      clearInterval(timerInterval);
-      renderOptimizer();
+      // Store task_id for cancellation support
+      optimizerState.taskId = taskId;
+
+      // Poll for results
+      var pollInterval = setInterval(async function() {
+        try {
+          var statusResp = await fetch('http://localhost:5000/api/optimizer/status/' + taskId);
+          var statusData = await statusResp.json();
+
+          if (statusData.state === 'PROGRESS') {
+            var el = document.getElementById('optimizer-elapsed');
+            if (el && statusData.progress) {
+              var phase = statusData.progress.phase || 'processing';
+              var completed = statusData.progress.completed || 0;
+              var total = statusData.progress.total || '?';
+              var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+              el.textContent = 'Elapsed: ' + elapsed + 's — ' + phase + ' ' + completed + '/' + total + ' rows';
+            }
+          } else if (statusData.state === 'SUCCESS') {
+            clearInterval(pollInterval);
+            var result = statusData.result;
+            if (!result || !result.success) throw new Error((result && result.error) || 'Optimization failed');
+            if (!result.results || !result.results.length) throw new Error('No results returned');
+
+            optimizerState.results = result.results.map(function(r) { return {
+              row_index: r.row_index, input: r.input, gold: r.gold, output: r.output,
+              score: r.score, iterations: r.iterations, template: r.template,
+              comments: r.comments, original_output: r.original_output, original_score: r.original_score,
+              latency_ms: r.latency_ms, original_latency_ms: r.original_latency_ms,
+              prompt_tokens: r.prompt_tokens, completion_tokens: r.completion_tokens,
+              total_tokens: r.total_tokens, cost_usd: r.cost_usd
+            }; });
+            optimizerState.summary = result.summary;
+            optimizerState.error = null;
+            optimizerState.running = false;
+            optimizerState.taskId = null;
+            clearInterval(timerInterval);
+            renderOptimizer();
+          } else if (statusData.state === 'FAILURE') {
+            clearInterval(pollInterval);
+            throw new Error(statusData.error || 'Optimization task failed');
+          }
+          // PENDING or other states — keep polling
+        } catch (pollErr) {
+          clearInterval(pollInterval);
+          optimizerState.running = false;
+          optimizerState.error = pollErr.message;
+          optimizerState.taskId = null;
+          clearInterval(timerInterval);
+          renderOptimizer();
+        }
+      }, 2000);
 
     } catch (error) {
       optimizerState.running = false;

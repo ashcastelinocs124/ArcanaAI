@@ -233,6 +233,17 @@ Use these trace IDs to test different DAG topologies.
 4. **Don't forget `window.functionName`** — inline onclick handlers need global scope
 5. **Don't assume data format** — check whether you're working with journey-grouped or flat-record schema
 6. **Don't just flag problems — explain them** — users need to understand WHY something is wrong, not just that it is
+7. **Don't send all journeys to backend without `trace_id`** — cascade evaluation makes ~7 LLM calls per trace; sending 15 traces = ~100 calls = timeout. Always filter with `trace_id` when evaluating a specific trace. *(Feb 9 2026)*
+8. **Don't run per-agent LLM evaluations sequentially** — if agent evaluations are independent (no shared state), parallelize with `ThreadPoolExecutor`. Sequential: N × latency. Parallel: 1 × latency. *(Feb 9 2026)*
+
+### Lessons Learned (Timestamped)
+
+#### Feb 9, 2026
+- **`loadPipelineFromBackend()` must accept `traceId`**: Without it, the backend evaluates every trace in the dataset. For cascade mode with LLM calls, this causes silent timeouts. Always scope API calls to the trace the user is actually looking at.
+- **Merge results, don't overwrite**: When evaluating one trace at a time, use `Object.assign(pipelineState.results, newResults)` instead of replacing. This lets the user switch between traces without losing prior evaluations.
+- **`_call_llm()` is thread-safe**: LiteLLM's `completion()` is stateless — safe to call from multiple threads. The `SpecialistEvaluator.analyze()` loop was a free parallelization win (same pattern as `workflow_engine.py`'s `ThreadPoolExecutor`).
+- **Flask `debug=False` is required for SSE**: Werkzeug's debug middleware buffers entire streaming responses. This was fixed in a prior session but worth remembering — any Flask SSE endpoint will appear to hang if `debug=True`.
+- **Profiling LLM-heavy endpoints**: When an endpoint is slow, count total LLM calls × model latency. `gpt-4o` = 3-8s/call, `gpt-4o-mini` = 1-3s/call. Multiply by number of sequential calls to get expected latency. This gives you the optimization target immediately.
 
 ### Self-Improvement Rule
 Whenever you learn something interesting — whether from a mistake, a debugging session, a surprising behavior, or a new pattern — **add it to this CLAUDE.md file** under the appropriate section (e.g., "Common Mistakes to Avoid", "Frontend Architecture Gotchas", "DAG Viewer Design Decisions", etc.). If no existing section fits, create a new one. This ensures hard-won knowledge is preserved across sessions and never re-learned the painful way.

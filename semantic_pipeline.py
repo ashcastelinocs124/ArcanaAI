@@ -782,21 +782,37 @@ Return ONLY the JSON object."""
         }
 
     def analyze(self, exclude_agents: set[str] | None = None) -> dict[str, dict]:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         nodes = self.dag.get_nodes()
         results = {}
         exclude = exclude_agents or set()
+
+        # Build prompts for all agents up front
+        tasks = {}
         for agent_id, node in nodes.items():
             if agent_id in exclude:
                 continue
-            prompt = self._build_prompt(agent_id, node)
-            response = _call_llm(prompt, self.model)
-            parsed = self._parse_response(response)
-            status = "specialist_pass" if parsed["score"] >= self.score_threshold else "specialist_fail"
-            results[agent_id] = {
-                "status": status,
-                **parsed,
-                "fail_reasons": [parsed["explanation"]] if status == "specialist_fail" else [],
+            tasks[agent_id] = self._build_prompt(agent_id, node)
+
+        # Run all LLM calls in parallel
+        def _eval_agent(agent_id: str, prompt: str) -> tuple[str, str]:
+            return agent_id, _call_llm(prompt, self.model)
+
+        with ThreadPoolExecutor(max_workers=min(len(tasks), 6)) as pool:
+            futures = {
+                pool.submit(_eval_agent, aid, prompt): aid
+                for aid, prompt in tasks.items()
             }
+            for future in as_completed(futures):
+                agent_id, response = future.result()
+                parsed = self._parse_response(response)
+                status = "specialist_pass" if parsed["score"] >= self.score_threshold else "specialist_fail"
+                results[agent_id] = {
+                    "status": status,
+                    **parsed,
+                    "fail_reasons": [parsed["explanation"]] if status == "specialist_fail" else [],
+                }
         return results
 
 
