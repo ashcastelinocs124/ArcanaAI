@@ -16,6 +16,7 @@ A professional observability platform for multi-agent LLM systems with forensic 
 
 <img width="1241" height="761" alt="Screenshot 2026-02-09 at 9 04 43 AM" src="https://github.com/user-attachments/assets/7d318a8e-bfe3-4820-a36e-d2b1a32aed89" />
 
+
 The dashboard provides an at-a-glance view of system health, including total traces, agent executions, pass rate, model health distribution, latency trends, and guardrail events. It is designed to surface drift, safety issues, and performance bottlenecks quickly.
 
 ### 2. **Trace Monitoring**
@@ -32,6 +33,8 @@ The dashboard provides an at-a-glance view of system health, including total tra
 - Edge analysis table with similarity percentages
 
 ### 4. **Prompt Optimizer**
+<img width="1277" height="679" alt="image" src="https://github.com/user-attachments/assets/b4c2a798-6be8-491d-adc7-cca99fab6292" />
+
 - Upload Excel/CSV files with test cases (input, gold, comments columns)
 - Iteratively optimizes prompt templates using LLM feedback
 - Side-by-side comparison: original vs optimized results
