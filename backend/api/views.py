@@ -43,7 +43,45 @@ from semantic_pipeline import (
 )
 from workflow_engine import WorkflowEngine
 
+from .models import AgentExecution, ExecutionTrace, OptimizationRun, RoutingDecision
+
 ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'csv'}
+
+
+def _persist_workflow_result(trace_id, journey_name, workflow_type, goal, samples, raw_journey=None):
+    """Best-effort persistence of workflow execution to DB."""
+    try:
+        from django.utils import timezone
+        trace_obj = ExecutionTrace.objects.create(
+            trace_id=trace_id,
+            journey_name=journey_name,
+            workflow_type=workflow_type,
+            goal=goal,
+            status='completed',
+            raw_journey=raw_journey or {},
+            completed_at=timezone.now(),
+        )
+        for sample in samples:
+            AgentExecution.objects.create(
+                trace=trace_obj,
+                agent_id=sample.get('agent_id', ''),
+                agent_name=sample.get('agent_name', ''),
+                parent_id=sample.get('parent_id', ''),
+                input_text=sample.get('input', ''),
+                output_text=sample.get('output', ''),
+                latency_ms=sample.get('telemetry', {}).get('latency', 0) * 1000
+                    if isinstance(sample.get('telemetry', {}).get('latency'), (int, float))
+                    else sample.get('telemetry', {}).get('latency_ms', 0),
+                ttft_ms=sample.get('telemetry', {}).get('ttft', 0) * 1000
+                    if isinstance(sample.get('telemetry', {}).get('ttft'), (int, float))
+                    else sample.get('telemetry', {}).get('ttft_ms', 0),
+                tokens=sample.get('telemetry', {}).get('tokens', {}).get('prompt_tokens', 0)
+                    + sample.get('telemetry', {}).get('tokens', {}).get('completion_tokens', 0),
+                model=sample.get('model_parameters', {}).get('model', ''),
+                status='completed',
+            )
+    except Exception:
+        pass  # Best-effort — never break API responses
 
 
 def _secure_filename(filename: str) -> str:
@@ -70,6 +108,22 @@ def health_check(request):
         'status': 'ok',
         'service': 'arcana-api',
         'version': '1.0.0',
+    })
+
+
+# ---------------------------------------------------------------------------
+# Traces (DB-backed, replaces static data.json)
+# ---------------------------------------------------------------------------
+
+@require_http_methods(["GET"])
+def list_traces(request):
+    """Return all execution traces in the frontend's journey-grouped format."""
+    traces = ExecutionTrace.objects.exclude(raw_journey={}).values_list('raw_journey', flat=True)
+    journeys = list(traces)
+    return JsonResponse({
+        'description': 'ArcanaAI execution traces',
+        'schema_version': '1.0',
+        'journeys': journeys,
     })
 
 
@@ -343,6 +397,23 @@ def route_gateway(request):
             )
         )
 
+        # Best-effort DB persistence
+        try:
+            RoutingDecision.objects.create(
+                intent=intent,
+                task_type=task_type,
+                latency_budget_ms=latency_budget_ms,
+                cost_budget=cost_budget,
+                quality=quality,
+                model_id=decision.model_id,
+                provider=decision.provider,
+                score=decision.score,
+                rationale=decision.rationale,
+                source=decision.source,
+            )
+        except Exception:
+            pass
+
         return JsonResponse({
             'success': True,
             'decision': {
@@ -377,6 +448,17 @@ def run_workflow(request):
 
         engine = WorkflowEngine(goal=goal, workflow_type=workflow_type, config=config)
         result = engine.execute()
+
+        # Best-effort DB persistence
+        journey_data = result.get('journey', {})
+        _persist_workflow_result(
+            trace_id=result['trace_id'],
+            journey_name=result['journey_name'],
+            workflow_type=workflow_type,
+            goal=goal,
+            samples=journey_data.get('samples', []),
+            raw_journey=journey_data,
+        )
 
         return JsonResponse({
             'success': True,

@@ -1,0 +1,11 @@
+.git
+.env
+.claude/
+context/
+venv/
+__pycache__
+*.pyc
+*.sqlite3
+*.egg-info
+.pytest_cache
+node_modules

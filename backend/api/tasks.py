@@ -160,6 +160,42 @@ def run_optimization_task(
         total_tokens = sum(r['total_tokens'] for r in result_data)
         total_baseline_latency = sum(r['original_latency_ms'] for r in result_data)
 
+        # Best-effort DB persistence
+        try:
+            from api.models import OptimizationResult as OptResult, OptimizationRun
+            import hashlib
+            file_hash = hashlib.sha256(filepath.name.encode()).hexdigest()[:16]
+            improvement = ((optimized_avg - original_avg) * 100) if original_avg > 0 else 0
+
+            run_obj = OptimizationRun.objects.create(
+                file_hash=file_hash,
+                prompt_template=prompt_template,
+                eval_model=eval_model,
+                optimizer_model=optimizer_model,
+                target_score=target_score,
+                max_iters=max_iters,
+                original_avg_score=original_avg,
+                optimized_avg_score=optimized_avg,
+                improvement_pct=improvement,
+                total_cost_usd=round(total_cost, 4),
+                agent_filter=agent_filter,
+            )
+            for rd in result_data:
+                OptResult.objects.create(
+                    run=run_obj,
+                    row_index=rd['row_index'],
+                    input_text=rd['input'],
+                    gold_text=rd['gold'],
+                    output_text=rd['output'],
+                    score=rd['score'],
+                    iterations=rd['iterations'],
+                    latency_ms=rd['latency_ms'],
+                    tokens=rd['total_tokens'],
+                    cost_usd=rd['cost_usd'],
+                )
+        except Exception:
+            pass  # Best-effort — never break task results
+
         return {
             'success': True,
             'results': result_data,

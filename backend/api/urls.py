@@ -1,10 +1,23 @@
 """API URL configuration."""
+from pathlib import Path
+
+from django.http import FileResponse
 from django.urls import path
 
 from . import views
 
+FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / 'frontend'
+
+
+def serve_index(request):
+    """Serve frontend/index.html at root URL."""
+    return FileResponse(open(FRONTEND_DIR / 'index.html', 'rb'), content_type='text/html')
+
+
 urlpatterns = [
+    path('', serve_index),
     path('health', views.health_check),
+    path('api/traces', views.list_traces),
     path('api/optimizer/run', views.run_prompt_optimizer),
     path('api/optimizer/status/<str:task_id>', views.optimizer_status),
     path('api/optimizer/cancel/<str:task_id>', views.optimizer_cancel),
