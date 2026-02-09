@@ -1158,6 +1158,7 @@ function showAgentPanel(agentId, traceId) {
           '<span><strong>Quality:</strong> ' + verdict.details.quality_assessment + '</span>' +
           '<span><strong>Alignment:</strong> ' + verdict.details.goal_alignment + '</span>' +
         '</div>' : '') +
+        '<button class="btn btn-primary" style="margin-top:10px;padding:6px 14px;font-size:.78rem;width:100%" onclick="createPromptFromCascade(\'' + agentId.replace(/'/g, "\\'") + '\',\'' + traceId.replace(/'/g, "\\'") + '\')">Optimize This Agent\'s Prompt</button>' +
       '</div>';
     }
   }
@@ -1208,6 +1209,89 @@ function closePanel() {
 }
 window.closePanel = closePanel;
 
+function formatCascadeComments(verdict) {
+  if (!verdict) return '';
+  var tierNames = {1: 'Sentinel', 2: 'Rules Judge', 3: 'Specialist'};
+  var lines = [];
+  lines.push('TIER ' + verdict.evaluated_by_tier + ' EVALUATION (' + (verdict.tier_name || tierNames[verdict.evaluated_by_tier] || 'Unknown') + ') - ' + (verdict.status === 'pass' ? 'PASS' : 'FAIL'));
+  if (typeof verdict.score === 'number') lines.push('Score: ' + (verdict.score * 100).toFixed(0) + '%');
+  lines.push('');
+  if (verdict.fail_reasons && verdict.fail_reasons.length) {
+    lines.push('Issues Identified:');
+    verdict.fail_reasons.forEach(function(r) { lines.push('- ' + r); });
+    lines.push('');
+  }
+  if (verdict.details) {
+    if (verdict.details.role_assessment) lines.push('Role Assessment: ' + verdict.details.role_assessment);
+    if (verdict.details.quality_assessment) lines.push('Quality Assessment: ' + verdict.details.quality_assessment);
+    if (verdict.details.goal_alignment) lines.push('Goal Alignment: ' + verdict.details.goal_alignment);
+    if (verdict.details.explanation) { lines.push(''); lines.push('Explanation: ' + verdict.details.explanation); }
+  }
+  return lines.join('\n');
+}
+
+function createPromptFromCascade(agentId, traceId) {
+  var traceResult = getTraceCheckpoints(traceId);
+  if (!traceResult || !traceResult.cascade_evaluation) { alert('No cascade evaluation found for this trace.'); return; }
+  var verdict = (traceResult.cascade_evaluation.agent_verdicts || {})[agentId];
+  if (!verdict) { alert('No verdict found for this agent.'); return; }
+
+  var journey = journeys.find(function(j) { return j.trace_id === traceId; });
+  var agent = journey ? journey.samples.find(function(s) { return s.agent_id === agentId; }) : null;
+  var agentName = agent ? agent.agent_name : agentId;
+  var workflowType = (agent && agent.metadata && agent.metadata.workflow_type) ? agent.metadata.workflow_type : null;
+  var agentRole = (agent && agent.metadata && agent.metadata.role) ? agent.metadata.role : '';
+
+  // Get system prompt from cached topologies
+  var systemPrompt = '';
+  var topoAgentName = '';  // the actual name in the topology (for prompt overrides)
+  if (window._workflowTopologies) {
+    // Try specific workflow type first, then search all topologies
+    var searchOrder = workflowType ? [workflowType] : [];
+    Object.keys(window._workflowTopologies).forEach(function(wt) {
+      if (wt !== workflowType) searchOrder.push(wt);
+    });
+    for (var si = 0; si < searchOrder.length && !systemPrompt; si++) {
+      var topoAgents = window._workflowTopologies[searchOrder[si]];
+      if (topoAgents) {
+        // Exact match first, then fuzzy (strip trailing "Agent" suffix from data names)
+        var topoAgent = topoAgents.find(function(a) { return a.name === agentName; });
+        if (!topoAgent) {
+          var stripped = agentName.replace(/Agent$/, '');
+          topoAgent = topoAgents.find(function(a) { return a.name === stripped || a.name === stripped + 'Agent'; });
+        }
+        if (topoAgent && topoAgent.system_prompt) {
+          systemPrompt = topoAgent.system_prompt;
+          topoAgentName = topoAgent.name;
+          if (!workflowType) workflowType = searchOrder[si];
+        }
+      }
+    }
+  }
+  // Fallback: generate a basic role-based prompt
+  if (!systemPrompt) {
+    var rolePart = agentRole ? ' Your role: ' + agentRole + '.' : '';
+    systemPrompt = 'You are ' + agentName + ', a specialized AI agent.' + rolePart + ' Given the following input, produce an accurate and complete response.\n\n{input}';
+  }
+  // Ensure {input} placeholder exists — workflow system prompts are fixed instructions
+  // without it, so append it so the optimizer can inject test data from Excel rows
+  if (systemPrompt.indexOf('{input}') === -1) {
+    systemPrompt += '\n\nUser request: {input}';
+  }
+
+  var comments = formatCascadeComments(verdict);
+  var promptName = agentName + ' \u2014 Cascade Fix';
+  addPrompt(promptName, agentName, systemPrompt, '', ['cascade-fix'], false, null, 'workflow', workflowType, comments, topoAgentName);
+
+  // Navigate to the new prompt in optimizer
+  var lib = loadPromptLibrary();
+  var newPrompt = lib[lib.length - 1];
+  closePanel();
+  navigateTo('optimizer');
+  openPromptDetail(newPrompt.id);
+}
+window.createPromptFromCascade = createPromptFromCascade;
+
 async function replaceWithOptimizedPrompt(agentName, traceId) {
   // Get selected prompt from dropdown
   var selectEl = document.getElementById('agentPromptSelect');
@@ -1250,11 +1334,12 @@ async function replaceWithOptimizedPrompt(agentName, traceId) {
 
   closePanel();
 
-  // Build config with prompt override
+  // Build config with prompt override — use topology name if available
+  var overrideKey = prompt.topoAgentName || agentName;
   var config = {
     prompt_overrides: {}
   };
-  config.prompt_overrides[agentName] = prompt.template;
+  config.prompt_overrides[overrideKey] = prompt.template;
 
   // Show the workflow dialog with pre-filled state
   var overlay = document.createElement('div');
@@ -1346,7 +1431,7 @@ async function replaceWithOptimizedPrompt(agentName, traceId) {
           var evt = eventData.type;
           var d = eventData.data;
           if (evt === 'agent_start') {
-            var isOverridden = d.name === agentName ? ' <span style="color:var(--green)">(optimized prompt)</span>' : '';
+            var isOverridden = (d.name === agentName || d.name === overrideKey) ? ' <span style="color:var(--green)">(optimized prompt)</span>' : '';
             statusText.innerHTML = '<span style="color:var(--copper)">' + d.name + '</span>' + isOverridden + ' \u2014 ' + d.role + '<br><span style="color:var(--text-dim);font-size:.85em">' + d.completed + '/' + d.total + ' agents</span>';
           } else if (evt === 'agent_done') {
             statusText.innerHTML = '<span style="color:var(--green)">\u2713</span> <span style="color:var(--copper)">' + d.name + '</span> done (' + d.latency + 's) \u2014 ' + d.completed + '/' + d.total;
@@ -1506,6 +1591,13 @@ function renderLogs() {
 // ===== DAG VIEWER =====
 function renderDAGViewer(selectedTrace) {
   if (!dataLoaded) return renderEmptyState('page-dagviewer', 'No DAGs to Display', 'Upload agent logs to visualize execution DAGs and run workflows.');
+  // Eagerly cache workflow topologies (needed for cascade → optimizer bridge)
+  if (!window._workflowTopologies) {
+    fetch('http://localhost:5000/api/workflow/topologies', { signal: AbortSignal.timeout(3000) })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) { if (data) window._workflowTopologies = data; })
+      .catch(function() {});
+  }
   const sel = selectedTrace || journeys[0].trace_id;
   const journey = journeys.find(j => j.trace_id === sel);
   const traceResult = getTraceCheckpoints(sel);
@@ -1534,6 +1626,26 @@ function renderDAGViewer(selectedTrace) {
       />
       <button class="btn btn-primary" style="padding:10px 20px;font-size:.85rem" onclick="var tid = document.getElementById('dagSelect')?.value; pipelineState.userGoal = document.getElementById('dagUserGoal').value; pipelineState.evaluationMode = 'cascade'; if(pipelineState.results) delete pipelineState.results[tid]; loadPipelineFromBackend(tid).then(function() { renderDAGViewer(tid); })">Verify Goal</button>
     </div>
+
+    ${window._pendingRerun ? `
+    <div id="rerun-banner" style="background:linear-gradient(135deg,rgba(74,222,128,.06),rgba(200,149,108,.06));border:1px solid rgba(74,222,128,.25);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px">
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(74,222,128,.12);border:1.5px solid rgba(74,222,128,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div>
+          <div style="font-size:.88rem;font-weight:600;color:var(--green)">Optimized prompt applied for <span style="color:var(--copper)">${window._pendingRerun.agentName}</span></div>
+          <div style="font-size:.72rem;color:var(--text-dim);margin-top:2px">Rerun the workflow to test whether the optimized prompt improves agent performance</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-primary" style="padding:10px 24px;font-size:.85rem;display:flex;align-items:center;gap:8px;white-space:nowrap" onclick="rerunWithOptimizedPrompt()">
+          <span style="font-size:1.1rem">&#9654;</span> Rerun Workflow
+        </button>
+        <button class="btn btn-ghost" style="padding:10px 14px;font-size:.78rem" onclick="window._pendingRerun=null;renderDAGViewer('${sel}')">Dismiss</button>
+      </div>
+    </div>
+    ` : ''}
 
     <div class="dag-container">
       <div class="dag-title">${journey?.journey_name || ''}</div>
@@ -1839,6 +1951,152 @@ function saveCurrentPromptToLibrary() {
 }
 window.saveCurrentPromptToLibrary = saveCurrentPromptToLibrary;
 
+function applyOptimizedPrompt() {
+  var opt = optimizerState.summary && optimizerState.summary.optimized_prompt;
+  if (!opt) { alert('No optimized prompt available.'); return; }
+  // Update the prompt library entry
+  var pLib = loadPromptLibrary();
+  var libEntry = pLib.find(function(pp) { return pp.id === promptsPageState.activePromptId; });
+  if (libEntry) {
+    libEntry.template = opt;
+    savePromptLibrary(pLib);
+  }
+
+  // Store pending optimization so DAG viewer can show rerun button
+  var summary = optimizerState.summary || {};
+  window._pendingRerun = {
+    agentName: libEntry ? libEntry.agentName : '',
+    topoAgentName: libEntry ? (libEntry.topoAgentName || libEntry.agentName) : '',
+    workflowType: libEntry ? libEntry.workflowType : 'finance_research',
+    prompt: opt,
+    traceId: summary.trace_id || '',
+    promptId: promptsPageState.activePromptId
+  };
+
+  // Navigate back to DAG viewer
+  navigateTo('dagviewer');
+}
+window.applyOptimizedPrompt = applyOptimizedPrompt;
+
+async function rerunWithOptimizedPrompt() {
+  var pending = window._pendingRerun;
+  if (!pending) { alert('No pending optimization.'); return; }
+
+  var goal = pipelineState.userGoal || '';
+  if (!goal) {
+    goal = window.prompt('Enter the goal for this workflow run:');
+    if (!goal) return;
+  }
+
+  var banner = document.getElementById('rerun-banner');
+  if (banner) {
+    banner.innerHTML =
+      '<div style="display:flex;align-items:center;gap:12px;width:100%">' +
+        '<div class="spinner" style="width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--copper);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0"></div>' +
+        '<div style="flex:1">' +
+          '<div id="rerun-status" style="font-size:.85rem;color:var(--text)">Connecting to backend...</div>' +
+          '<div id="rerun-progress" style="font-size:.72rem;color:var(--text-dim);margin-top:3px"></div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  var overrides = {};
+  overrides[pending.topoAgentName] = pending.prompt;
+  var startTime = Date.now();
+
+  try {
+    var response = await fetch('http://localhost:5000/api/workflow/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        goal: goal,
+        workflow_type: pending.workflowType || 'finance_research',
+        config: { prompt_overrides: overrides }
+      })
+    });
+
+    if (!response.ok) {
+      var err = await response.json().catch(function() { return {}; });
+      throw new Error(err.error || 'Workflow request failed: ' + response.status);
+    }
+
+    var reader = response.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+    var finalJourney = null;
+    var newTraceId = '';
+
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      var parts = buffer.split('\n\n');
+      buffer = parts.pop() || '';
+      for (var pi = 0; pi < parts.length; pi++) {
+        var eventData = null;
+        var evtLines = parts[pi].split('\n');
+        for (var li = 0; li < evtLines.length; li++) {
+          if (evtLines[li].indexOf('data: ') === 0) {
+            try { eventData = JSON.parse(evtLines[li].slice(6)); } catch (_) {}
+          }
+        }
+        if (!eventData) continue;
+        var evt = eventData.type;
+        var d = eventData.data;
+        var statusEl = document.getElementById('rerun-status');
+        var progressEl = document.getElementById('rerun-progress');
+        if (evt === 'agent_start' && statusEl) {
+          var isOpt = d.name === pending.topoAgentName ? ' (optimized)' : '';
+          statusEl.textContent = d.name + isOpt + ' — ' + d.role;
+          if (progressEl) progressEl.textContent = d.completed + '/' + d.total + ' agents';
+        } else if (evt === 'agent_done' && statusEl) {
+          var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+          statusEl.innerHTML = '<span style="color:var(--green)">\u2713</span> ' + d.name + ' done (' + d.latency + 's)';
+          if (progressEl) progressEl.textContent = d.completed + '/' + d.total + ' agents \u00B7 ' + elapsed + 's elapsed';
+        } else if (evt === 'complete') {
+          newTraceId = d.trace_id;
+          finalJourney = d.journey;
+        }
+      }
+    }
+
+    if (!finalJourney) throw new Error('Stream ended without completion');
+
+    // Add the new journey to data
+    if (finalJourney.samples) {
+      if (typeof ensureAgentIds === 'function') ensureAgentIds(finalJourney);
+      journeys.push(finalJourney);
+      DATA.journeys.push(finalJourney);
+      dataLoaded = true;
+    }
+
+    // Run cascade evaluation on the new trace
+    pipelineState.userGoal = goal;
+    pipelineState.evaluationMode = 'cascade';
+
+    if (banner) {
+      var statusEl = document.getElementById('rerun-status');
+      if (statusEl) { statusEl.style.color = '#a78bfa'; statusEl.textContent = 'Workflow complete! Running cascade evaluation...'; }
+    }
+
+    await loadPipelineFromBackend(newTraceId);
+
+    // Clear pending state and show the new trace
+    window._pendingRerun = null;
+    renderDAGViewer(newTraceId);
+
+  } catch (err) {
+    if (banner) {
+      banner.style.borderColor = 'rgba(248,113,113,.3)';
+      banner.style.background = 'var(--red-dim)';
+      banner.innerHTML =
+        '<div style="flex:1;font-size:.85rem;color:var(--red)">' + err.message + '</div>' +
+        '<button class="btn btn-ghost" style="padding:8px 16px;font-size:.78rem" onclick="window._pendingRerun=null;renderDAGViewer()">Dismiss</button>';
+    }
+  }
+}
+window.rerunWithOptimizedPrompt = rerunWithOptimizedPrompt;
+
 // ===== GOAL VERIFICATION (LLM-based checkpoint analysis) =====
 async function loadPipelineFromBackend(traceId) {
   if (pipelineState.loading) return;
@@ -2080,6 +2338,9 @@ function renderDAGWithCheckpoints(containerId, journey, traceResult) {
     if (!pArr || pArr.length === 0) rootSet.add(id);
   });
 
+  // Check for agents with optimized prompts pending rerun
+  const optimizedAgentName = window._pendingRerun ? window._pendingRerun.agentName : null;
+
   let svg = `<svg class="dag-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" style="max-width:100%">`;
   svg += `<defs>
     <marker id="arrow-d" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#2a2a3c"/></marker>
@@ -2208,6 +2469,14 @@ function renderDAGWithCheckpoints(containerId, journey, traceResult) {
       }
     }
 
+    // Optimized prompt badge (top-left, next to status dot)
+    if (optimizedAgentName && (p.node.agent_name === optimizedAgentName)) {
+      const oLabel = 'Optimized';
+      const obw = oLabel.length * 5.5 + 10;
+      svg += `<rect x="${p.x + 24}" y="${p.y + 7}" width="${obw}" height="14" rx="3" fill="rgba(74,222,128,.15)" stroke="rgba(74,222,128,.35)" stroke-width=".5"/>`;
+      svg += `<text x="${p.x + 24 + obw/2}" y="${p.y + 16}" text-anchor="middle" fill="#4ade80" font-size="7.5" font-weight="600" font-family="DM Sans,sans-serif">${oLabel}</text>`;
+    }
+
     svg += `</g>`;
   });
 
@@ -2257,17 +2526,19 @@ function savePromptLibrary(lib) {
   localStorage.setItem('arcana-prompt-library', JSON.stringify(lib));
 }
 
-function addPrompt(name, agentName, template, notes, labels, favorite, model, source, workflowType) {
+function addPrompt(name, agentName, template, notes, labels, favorite, model, source, workflowType, cascadeComments, topoAgentName) {
   var lib = loadPromptLibrary();
   var now = new Date().toISOString();
   lib.push({
     id: 'p-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
     name: name, agentName: agentName, template: template, notes: notes || '',
+    topoAgentName: topoAgentName || agentName,
     labels: Array.isArray(labels) ? labels : [],
     favorite: !!favorite,
     model: model || null,
     source: source || 'excel',
     workflowType: workflowType || null,
+    cascadeComments: cascadeComments || '',
     createdAt: now, updatedAt: now
   });
   savePromptLibrary(lib);
@@ -2293,6 +2564,7 @@ function duplicatePrompt(promptId) {
     name: orig.name + ' (copy)', agentName: orig.agentName, template: orig.template,
     notes: orig.notes, labels: (orig.labels || []).slice(),
     favorite: false, model: orig.model || null,
+    cascadeComments: orig.cascadeComments || '',
     createdAt: now, updatedAt: now
   });
   savePromptLibrary(lib);
@@ -2411,7 +2683,7 @@ async function runOriginalRow(template, inputText, goldText, apiKey, model) {
   return { template: template, output: output, score: score, iterations: 1 };
 }
 
-async function runOptimizeRow(template, inputText, goldText, targetScore, maxIters, apiKey, model) {
+async function runOptimizeRow(template, inputText, goldText, targetScore, maxIters, apiKey, model, comments) {
   var currentTemplate = template;
   var lastOutput = '';
   var lastScore = 0;
@@ -2432,6 +2704,7 @@ async function runOptimizeRow(template, inputText, goldText, targetScore, maxIte
       'LLM output: ' + lastOutput + '\n' +
       'Expected output: ' + goldText + '\n' +
       'Similarity score: ' + (lastScore * 100).toFixed(0) + '% (target: ' + (targetScore * 100).toFixed(0) + '%)\n\n' +
+      (comments && comments.trim() ? 'EXPERT EVALUATION FEEDBACK (use this to guide your improvements):\n' + comments + '\n\n' : '') +
       'Write an improved prompt template that will produce output closer to the expected result. ' +
       'The template MUST contain {input} as a placeholder. ' +
       'Return ONLY the improved template, nothing else.';
@@ -2455,7 +2728,7 @@ function renderOptimizer() {
       renderPromptsTable();
     }
   } catch (renderErr) {
-    console.error('renderOptimizer error:', renderErr);
+    console.error('[RENDER] renderOptimizer CAUGHT ERROR:', renderErr, renderErr.stack);
     document.getElementById('page-optimizer').innerHTML = '<div style="padding:40px;text-align:center"><div class="section-heading" style="color:var(--red);margin-bottom:12px">Rendering Error</div><div style="font-size:.85rem;color:var(--text-secondary);margin-bottom:16px">' + renderErr.message + '</div><button class="btn btn-primary" onclick="promptsPageState.view=\'table\';renderOptimizer()">Back to Table</button></div>';
   }
 }
@@ -2582,6 +2855,7 @@ function renderPromptDetail(promptId) {
   }
 
   var hasResults = st.results.length > 0;
+  console.log('[RENDER] renderPromptDetail called. hasResults:', hasResults, 'results.length:', st.results.length, 'summary:', st.summary ? JSON.stringify({workflow_run: st.summary.workflow_run, has_opt_prompt: !!st.summary.optimized_prompt}).slice(0,100) : 'null', 'running:', st.running);
   var origAvg = st.summary?.original_avg || 0;
   var optAvg = st.summary?.optimized_avg || 0;
   var improvement = st.summary?.improvement?.toFixed(0) || 0;
@@ -2650,6 +2924,8 @@ function renderPromptDetail(promptId) {
         '<div>' +
           '<label class="agent-field-label" style="margin-bottom:4px;display:block">Prompt Template</label>' +
           '<textarea id="promptTemplate" rows="3" style="font-size:.8rem" placeholder="Your prompt with {input} placeholder">' + (p.template || st.promptTemplate) + '</textarea>' +
+          (p.cascadeComments ? '<label class="agent-field-label" style="margin-bottom:4px;margin-top:10px;display:block">Cascade Evaluation Feedback</label>' +
+            '<textarea id="cascadeComments" rows="4" readonly style="font-size:.78rem;color:var(--text-secondary);background:var(--surface);border-color:var(--copper);resize:vertical">' + p.cascadeComments + '</textarea>' : '') +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
           '<div>' +
@@ -2766,10 +3042,11 @@ function renderPromptDetail(promptId) {
       '</tbody></table></div>';
 
     // Optimized prompt results table
+    var _displayTemplate = (st.summary && st.summary.workflow_run && st.summary.optimized_prompt) ? st.summary.optimized_prompt : st.results[st.results.length-1].template;
     html += '<div class="section-heading" style="font-size:1.1rem;margin-bottom:8px;color:var(--green);display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0"></span>Optimized Prompt Results</div>' +
       '<div style="background:var(--green-dim);border:1px solid rgba(74,222,128,.15);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">' +
         '<div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--green);font-weight:600;margin-bottom:6px">Prompt Template Used</div>' +
-        '<div style="font-family:\'DM Sans\',monospace;font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">' + st.results[st.results.length-1].template + '</div>' +
+        '<div style="font-family:\'DM Sans\',monospace;font-size:.82rem;color:var(--text-secondary);line-height:1.6;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">' + _displayTemplate + '</div>' +
         '<div style="font-size:.72rem;color:var(--text-dim);margin-top:8px">Average similarity: ' + (optAvg*100).toFixed(0) + '%</div>' +
       '</div>' +
       '<div class="table-wrap" style="margin-bottom:24px"><table><thead><tr><th style="width:30px">#</th><th>Input</th><th>Expected Output</th><th>LLM Response</th><th style="width:70px">Score</th><th style="width:60px">Delta</th><th style="width:70px">Latency</th><th style="width:60px">Cost</th></tr></thead><tbody>' +
@@ -2783,20 +3060,26 @@ function renderPromptDetail(promptId) {
       '</tbody></table></div>';
 
     // Copyable optimized prompt
+    var _isWorkflowRun = st.summary && st.summary.workflow_run;
     html += '<div class="metric-card" style="padding:20px;border-color:rgba(74,222,128,.25);margin-bottom:20px">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
-        '<div style="font-family:var(--font-display);font-size:1.2rem;color:var(--green)">Optimized Prompt</div>' +
+        '<div style="font-family:var(--font-display);font-size:1.2rem;color:var(--green)">Optimized Prompt' + (_isWorkflowRun && st.summary.optimized_agent ? ' <span style="font-size:.75rem;color:var(--text-secondary);font-weight:400">for ' + st.summary.optimized_agent + '</span>' : '') + '</div>' +
         '<div style="display:flex;gap:8px">' +
-          '<button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="navigator.clipboard.writeText(optimizerState.results[optimizerState.results.length-1].template);this.textContent=\'Copied!\';setTimeout(function(){this.textContent=\'Copy\'},1500)">Copy</button>' +
-          '<button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="saveCurrentPromptToLibrary()">Save to Library</button>' +
+          '<button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="var _t=(optimizerState.summary&&optimizerState.summary.workflow_run&&optimizerState.summary.optimized_prompt)?optimizerState.summary.optimized_prompt:optimizerState.results[optimizerState.results.length-1].template;navigator.clipboard.writeText(_t);this.textContent=\'Copied!\';setTimeout(function(){this.textContent=\'Copy\'},1500)">Copy</button>' +
+          (_isWorkflowRun ? '<button class="btn btn-primary" style="padding:6px 12px;font-size:.78rem" onclick="applyOptimizedPrompt()">Apply to Prompt</button>' : '<button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="saveCurrentPromptToLibrary()">Save to Library</button>') +
         '</div>' +
       '</div>' +
-      '<div style="font-family:\'DM Sans\',monospace;font-size:.88rem;color:var(--text);line-height:1.7;padding:16px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);white-space:pre-wrap">' + st.results[st.results.length-1].template + '</div>' +
+      '<div style="font-family:\'DM Sans\',monospace;font-size:.88rem;color:var(--text);line-height:1.7;padding:16px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);white-space:pre-wrap">' + _displayTemplate + '</div>' +
+      (_isWorkflowRun ? '<div style="display:flex;gap:16px;margin-top:12px;font-size:.75rem;color:var(--text-dim)">' +
+        '<span>Agent: <span style="color:var(--copper)">' + (st.summary.optimized_agent || '') + '</span></span>' +
+        '<span>Workflow: <span style="color:var(--copper)">' + (st.results.length) + ' agents executed</span></span>' +
+        '<span>Trace: <span style="color:var(--copper)">' + (st.summary.trace_id || '') + '</span></span>' +
+      '</div>' :
       '<div style="display:flex;gap:16px;margin-top:12px;font-size:.75rem;color:var(--text-dim)">' +
         '<span>Avg score: <span style="color:var(--green)">' + (optAvg*100).toFixed(0) + '%</span> (was ' + (origAvg*100).toFixed(0) + '%)</span>' +
         '<span>Improvement: <span style="color:var(--green)">+' + improvement + '%</span></span>' +
         '<span>' + st.results.reduce(function(s,r){return s+r.iterations;},0) + ' total iterations across ' + st.results.length + ' rows</span>' +
-      '</div>' +
+      '</div>') +
     '</div>';
   } else {
     // Empty state for detail view
@@ -3181,7 +3464,7 @@ async function runOptimizer() {
     return;
   }
 
-  if (!isWorkflowSource && !template.includes('{input}')) {
+  if (uploadedFile && !template.includes('{input}')) {
     alert('Please provide a prompt template with {input} placeholder.');
     return;
   }
@@ -3203,12 +3486,12 @@ async function runOptimizer() {
   optimizerState.running = true;
   renderOptimizer();
 
-  // Workflow-sourced prompt: run the workflow with this prompt as an override
-  if (isWorkflowSource && activePrompt) {
+  // Workflow-sourced prompt WITHOUT an uploaded file: optimize the prompt, then re-run the workflow
+  // If the user uploaded an Excel file, fall through to the Excel-based optimizer path instead
+  if (isWorkflowSource && activePrompt && !uploadedFile) {
     var wfAgent = activePrompt.agentName || '';
+    var wfAgentTopo = activePrompt.topoAgentName || wfAgent;  // topology name for prompt overrides
     var wfType = activePrompt.workflowType || 'finance_research';
-    var overrides = {};
-    if (wfAgent) overrides[wfAgent] = template;
 
     // Use a real goal: from pipeline state, or ask the user
     var wfGoal = pipelineState.userGoal || '';
@@ -3222,11 +3505,42 @@ async function runOptimizer() {
       var el = document.getElementById('optimizer-elapsed');
       if (el) {
         var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-        el.textContent = 'Elapsed: ' + elapsed + 's — Running workflow with prompt override...';
+        el.textContent = 'Elapsed: ' + elapsed + 's — Optimizing prompt...';
       }
     }, 1000);
 
     try {
+      // Step 1: Use LLM to improve the prompt using cascade feedback
+      var cascadeComments = activePrompt.cascadeComments || '';
+      var optimizeMetaPrompt = 'You are a prompt engineering expert. An AI agent failed a quality evaluation. ' +
+        'Rewrite its system prompt to fix the identified issues.\n\n' +
+        'CURRENT SYSTEM PROMPT:\n' + template + '\n\n' +
+        'AGENT ROLE: ' + wfAgent + '\n' +
+        'WORKFLOW GOAL: ' + wfGoal + '\n\n';
+      if (cascadeComments && cascadeComments.trim()) {
+        optimizeMetaPrompt += 'EXPERT EVALUATION FEEDBACK (the agent failed on these issues — your rewrite MUST address each one):\n' + cascadeComments + '\n\n';
+      }
+      optimizeMetaPrompt += 'Write an improved system prompt that directly addresses every identified issue. ' +
+        'The agent must stay focused on its role within the workflow and produce output relevant to the goal. ' +
+        'Return ONLY the improved system prompt, nothing else.';
+
+      var elStatus = document.getElementById('optimizer-elapsed');
+      if (elStatus) elStatus.textContent = 'Optimizing ' + wfAgent + ' prompt with cascade feedback...';
+
+      var improvedTemplate = await callLLM(optimizeMetaPrompt, apiKey, model);
+      if (!improvedTemplate || improvedTemplate.trim().length < 20) {
+        throw new Error('LLM returned empty or too-short optimized prompt');
+      }
+
+      // Step 2: Re-run workflow with the improved prompt
+      if (elStatus) {
+        var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+        elStatus.textContent = 'Elapsed: ' + elapsed + 's — Running workflow with optimized prompt...';
+      }
+
+      var overrides = {};
+      if (wfAgentTopo) overrides[wfAgentTopo] = improvedTemplate;
+
       var wfResp = await fetch('http://localhost:5000/api/workflow/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3268,7 +3582,7 @@ async function runOptimizer() {
           if (evtType === 'agent_start') {
             var el = document.getElementById('optimizer-elapsed');
             if (el) {
-              var isOverridden = evtPayload.name === wfAgent ? ' (optimized prompt)' : '';
+              var isOverridden = evtPayload.name === wfAgentTopo ? ' (optimized prompt)' : '';
               el.textContent = evtPayload.name + isOverridden + ' — ' + evtPayload.completed + '/' + evtPayload.total + ' agents';
             }
           } else if (evtType === 'agent_done') {
@@ -3296,27 +3610,46 @@ async function runOptimizer() {
 
       var wfSamples = finalJourney.samples || [];
       optimizerState.results = wfSamples.map(function(s, idx) {
+        var isTargetAgent = s.agent_name === wfAgentTopo || s.agent_name === wfAgent || (s.agent_name && (s.agent_name.startsWith(wfAgent) || s.agent_name.startsWith(wfAgentTopo)));
         return {
           row_index: idx,
           input: s.agent_name || s.input || '',
           gold: wfGoal,
           output: s.output || (s.core_payload && s.core_payload.completion_message) || '',
-          score: 0, iterations: 1, template: template,
+          score: 0, iterations: 1,
+          template: isTargetAgent ? improvedTemplate : (s.system_prompt || ''),
           original_output: '', original_score: 0
         };
       });
+      // Save improved template to library WITHOUT overwriting the original
+      var pLib = loadPromptLibrary();
+      var libEntry = pLib.find(function(pp) { return pp.id === promptsPageState.activePromptId; });
+      if (libEntry) {
+        libEntry.originalTemplate = libEntry.template;  // preserve original
+        libEntry.optimizedTemplate = improvedTemplate;   // store optimized separately
+        savePromptLibrary(pLib);
+      }
+      // Keep promptTemplate as the ORIGINAL so "Original Prompt" section shows the before state
       optimizerState.summary = {
         total_rows: wfSamples.length,
         original_avg: 0, optimized_avg: 0,
         improvement: 0, model: model,
-        workflow_run: true, trace_id: newTraceId
+        workflow_run: true, trace_id: newTraceId,
+        optimized_agent: wfAgent,
+        original_prompt: template,
+        optimized_prompt: improvedTemplate
       };
       optimizerState.error = null;
+      console.log('[CASCADE-OPT] Success. Results:', optimizerState.results.length, 'Summary:', JSON.stringify(optimizerState.summary).slice(0, 200));
+      console.log('[CASCADE-OPT] Improved template:', improvedTemplate.slice(0, 150));
+      console.log('[CASCADE-OPT] Library updated:', !!libEntry, 'activePromptId:', promptsPageState.activePromptId);
     } catch (wfErr) {
       optimizerState.error = 'Workflow run failed: ' + wfErr.message;
+      console.error('[CASCADE-OPT] Error:', wfErr);
     }
     optimizerState.running = false;
     clearInterval(timerInterval);
+    console.log('[CASCADE-OPT] About to render. hasResults:', optimizerState.results.length, 'view:', promptsPageState.view, 'error:', optimizerState.error);
     renderOptimizer();
     return;
   }
@@ -3356,6 +3689,14 @@ async function runOptimizer() {
       formData.append('optimizer_model', model);
       if (optimizerState.selectedAgent) {
         formData.append('agent_filter', optimizerState.selectedAgent);
+      }
+
+      // Send cascade evaluation feedback if available
+      var cascadePrompt = promptsPageState.activePromptId
+        ? loadPromptLibrary().find(function(pp) { return pp.id === promptsPageState.activePromptId; })
+        : null;
+      if (cascadePrompt && cascadePrompt.cascadeComments) {
+        formData.append('cascade_feedback', cascadePrompt.cascadeComments);
       }
 
       // Submit optimization task (returns immediately with task_id)
@@ -3457,6 +3798,10 @@ async function runOptimizer() {
       }
       if (!data.length) throw new Error('No rows found for agent "' + (optimizerState.selectedAgent || 'all') + '". Check that the agent name matches your data.');
 
+      // Get cascade comments from active prompt (if any)
+      var cascadeActivePrompt = promptsPageState.activePromptId ? loadPromptLibrary().find(function(pp) { return pp.id === promptsPageState.activePromptId; }) : null;
+      var cascadeComments = (cascadeActivePrompt && cascadeActivePrompt.cascadeComments) || '';
+
       var results = [];
       for (var i = 0; i < data.length; i++) {
         var row = data[i];
@@ -3468,7 +3813,9 @@ async function runOptimizer() {
         var orig = await runOriginalRow(template, inputText, goldText, apiKey, model);
 
         // Step 2: Iteratively optimize prompt to match gold output
-        var opt = await runOptimizeRow(template, inputText, goldText, targetScore, maxIters, apiKey, model);
+        var rowComments = commentsCol ? String(row[commentsCol] || '') : '';
+        var allComments = [cascadeComments, rowComments].filter(Boolean).join('\n\n');
+        var opt = await runOptimizeRow(template, inputText, goldText, targetScore, maxIters, apiKey, model, allComments);
 
         results.push({
           row_index: i,

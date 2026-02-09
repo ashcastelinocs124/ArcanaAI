@@ -103,8 +103,9 @@ def _optimizer_prompt(
     gold_text: str,
     output_text: str,
     score: float,
+    comments: str | None = None,
 ) -> str:
-    return (
+    base = (
         "You are optimizing a prompt template for an LLM agent.\n"
         "Return ONLY the improved prompt template.\n\n"
         f"Current prompt template:\n{current_template}\n\n"
@@ -112,9 +113,14 @@ def _optimizer_prompt(
         f"Gold output:\n{gold_text}\n\n"
         f"Model output:\n{output_text}\n\n"
         f"Similarity score: {score:.4f}\n\n"
+    )
+    if comments and comments.strip():
+        base += f"EXPERT EVALUATION FEEDBACK (use this to guide your improvements):\n{comments}\n\n"
+    base += (
         "Improve the prompt to make the model output closer to the gold output.\n"
         "Keep the {input} placeholder in the template."
     )
+    return base
 
 
 def load_excel(
@@ -169,6 +175,7 @@ def optimize_row(
     optimizer_model: str,
     target_score: float,
     max_iters: int,
+    comments: str | None = None,
 ) -> tuple[str, str, float, int, float, int, int, int, float]:
     """Returns (template, output, score, iterations, latency_ms, prompt_tokens, completion_tokens, total_tokens, cost_usd)."""
     current_template = prompt_template
@@ -204,6 +211,7 @@ def optimize_row(
             gold_text=gold_text,
             output_text=m.output,
             score=score,
+            comments=comments,
         )
         om = _call_llm_tracked(optimizer_query, optimizer_model)
         total_latency += om.latency_ms
@@ -215,8 +223,9 @@ def optimize_row(
         new_template = om.output.strip()
         if not new_template or new_template == current_template:
             break
+        # LLM sometimes drops the {input} placeholder — recover by appending it
         if "{input}" not in new_template:
-            break
+            new_template += "\n\n{input}"
         current_template = new_template
 
     return current_template, last_output, last_score, iterations, total_latency, total_p_tok, total_c_tok, total_tok, total_cost
@@ -270,6 +279,7 @@ def run_optimizer(
     learning_path: Path,
     output_path: Path,
     agent_filter: str | None = None,
+    cascade_feedback: str | None = None,
 ) -> list[OptimizationResult]:
     df, input_col, gold_col, comments_col = load_excel(
         excel_path, input_col, gold_col, comments_col
@@ -298,6 +308,10 @@ def run_optimizer(
         if user_comments and user_comments.lower() in {"nan", "none"}:
             user_comments = None
 
+        # Combine cascade feedback with per-row comments
+        all_comments_parts = [cascade_feedback, user_comments]
+        all_comments = "\n\n".join(p for p in all_comments_parts if p and p.strip())
+
         current_template, output, score, iters, lat, p_tok, c_tok, t_tok, cost = optimize_row(
             prompt_template=current_template,
             input_text=input_text,
@@ -306,6 +320,7 @@ def run_optimizer(
             optimizer_model=optimizer_model,
             target_score=target_score,
             max_iters=max_iters,
+            comments=all_comments or None,
         )
 
         results.append(

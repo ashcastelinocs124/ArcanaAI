@@ -121,6 +121,7 @@ def run_prompt_optimizer(request):
         target_score = float(request.POST.get('target_score', 0.85))
         max_iters = int(request.POST.get('max_iters', 3))
         agent_filter = request.POST.get('agent_filter', None)
+        cascade_feedback = request.POST.get('cascade_feedback', None)
 
         # Enqueue Celery task
         from .tasks import run_optimization_task
@@ -136,6 +137,7 @@ def run_prompt_optimizer(request):
             eval_model=eval_model,
             optimizer_model=optimizer_model,
             agent_filter=agent_filter,
+            cascade_feedback=cascade_feedback,
         )
 
         return JsonResponse({'task_id': task.id, 'status': 'queued'})
@@ -395,7 +397,7 @@ def get_workflow_topologies(request):
     result = {}
     for wf_type, agents in WORKFLOW_TOPOLOGIES.items():
         result[wf_type] = [
-            {'name': a['name'], 'role': a['role'], 'model': a['model']}
+            {'name': a['name'], 'role': a['role'], 'model': a['model'], 'system_prompt': a['system_prompt']}
             for a in agents
         ]
     return JsonResponse(result)

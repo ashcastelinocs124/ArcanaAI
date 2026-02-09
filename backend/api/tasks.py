@@ -43,6 +43,7 @@ def run_optimization_task(
     eval_model: str = 'gpt-4o',
     optimizer_model: str = 'gpt-4o',
     agent_filter: str | None = None,
+    cascade_feedback: str | None = None,
 ):
     """
     Run prompt optimization in a Celery worker.
@@ -125,6 +126,7 @@ def run_optimization_task(
             learning_path=learning_path,
             output_path=output_path,
             agent_filter=agent_filter,
+            cascade_feedback=cascade_feedback,
         )
 
         # Convert results to JSON-serializable format

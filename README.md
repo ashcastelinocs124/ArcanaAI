@@ -1,4 +1,4 @@
-# Arcana - LLM Observability Platform
+# ArcanaAI - LLM Observability Platform
 
 A professional observability platform for multi-agent LLM systems with forensic analysis capabilities.
 

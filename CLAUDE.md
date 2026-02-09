@@ -235,6 +235,10 @@ Use these trace IDs to test different DAG topologies.
 6. **Don't just flag problems — explain them** — users need to understand WHY something is wrong, not just that it is
 7. **Don't send all journeys to backend without `trace_id`** — cascade evaluation makes ~7 LLM calls per trace; sending 15 traces = ~100 calls = timeout. Always filter with `trace_id` when evaluating a specific trace. *(Feb 9 2026)*
 8. **Don't run per-agent LLM evaluations sequentially** — if agent evaluations are independent (no shared state), parallelize with `ThreadPoolExecutor`. Sequential: N × latency. Parallel: 1 × latency. *(Feb 9 2026)*
+9. **Workflow system prompts don't have `{input}`** — the optimizer requires `{input}` placeholder to inject test data. Workflow agents use system-prompt architecture (fixed instruction + user message), not template-based prompts. `createPromptFromCascade()` must append `\n\nUser request: {input}` if missing. *(Feb 9 2026)*
+10. **Optimizer `{input}` recovery** — LLMs sometimes drop the `{input}` placeholder from improved prompts. Instead of `break`ing the loop (giving up), append `\n\n{input}` to the LLM's output to salvage the improvement. *(Feb 9 2026)*
+11. **`isWorkflowSource` short-circuits the optimizer** — `runOptimizer()` has two paths: workflow re-execution (for testing prompts by re-running the workflow) and actual optimization (backend Celery / client-side). Cascade prompts have `source: 'workflow'`, so they hit the workflow path and the optimizer never runs. Fix: only take the workflow path when there's no uploaded Excel file. *(Feb 9 2026)*
+12. **Agent names in `data.json` don't match workflow topology** — Static data uses `EarningsAnalystAgent` but topology has `EarningsAnalyst` (no "Agent" suffix). This breaks both topology lookup (no system prompt found) and prompt overrides (wrong key). Fix: fuzzy match in `createPromptFromCascade` + store `topoAgentName` separately for override keys. *(Feb 9 2026)*
 
 ### Lessons Learned (Timestamped)
 
