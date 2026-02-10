@@ -127,6 +127,45 @@ def list_traces(request):
     })
 
 
+@require_http_methods(["POST"])
+def upload_traces(request):
+    """Accept uploaded journey data and persist to DB."""
+    try:
+        data = json.loads(request.body)
+        journeys = data.get('journeys', [])
+        if not journeys:
+            return JsonResponse({'error': 'No journeys provided'}, status=400)
+
+        created = 0
+        updated = 0
+        for journey in journeys:
+            trace_id = journey.get('trace_id', '')
+            if not trace_id:
+                continue
+            _, was_created = ExecutionTrace.objects.update_or_create(
+                trace_id=trace_id,
+                defaults={
+                    'journey_name': journey.get('journey_name', ''),
+                    'workflow_type': 'uploaded',
+                    'status': 'completed',
+                    'raw_journey': journey,
+                },
+            )
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+
+        return JsonResponse({
+            'success': True,
+            'created': created,
+            'updated': updated,
+            'total': created + updated,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 # ---------------------------------------------------------------------------
 # Prompt Optimizer (async via Celery)
 # ---------------------------------------------------------------------------

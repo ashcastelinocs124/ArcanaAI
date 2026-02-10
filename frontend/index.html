@@ -494,6 +494,7 @@ function handleLogUpload(event) {
         const data = parseXLSXToJourneys(new Uint8Array(e.target.result));
         if (data) {
           loadData(data);
+          persistUploadedTraces(data);
         } else {
           alert('Could not parse Excel file. Ensure it has columns like trace_id, agent_name, input, output.');
         }
@@ -510,6 +511,7 @@ function handleLogUpload(event) {
         const data = normalizeUploadedJSON(json);
         if (data) {
           loadData(data);
+          persistUploadedTraces(data);
         } else {
           alert('Unrecognized JSON format. Expected one of:\n\u2022 { journeys: [...] } (full schema)\n\u2022 Array of journey objects with trace_id + samples\n\u2022 Array of flat agent logs with trace_id + agent_name\n\u2022 Single agent log object');
         }
@@ -519,6 +521,21 @@ function handleLogUpload(event) {
     };
     reader.readAsText(file);
   }
+}
+
+function persistUploadedTraces(data) {
+  // Save uploaded traces to backend DB so they persist across sessions
+  apiFetch('/api/traces/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ journeys: data.journeys || [] })
+  }).then(function(r) { return r.json(); }).then(function(result) {
+    if (result.success) {
+      console.log('Traces saved to DB: ' + result.created + ' created, ' + result.updated + ' updated');
+    }
+  }).catch(function(err) {
+    console.warn('Could not persist traces to backend:', err.message);
+  });
 }
 
 // ===== XLSX PARSING =====

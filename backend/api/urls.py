@@ -18,6 +18,7 @@ urlpatterns = [
     path('', serve_index),
     path('health', views.health_check),
     path('api/traces', views.list_traces),
+    path('api/traces/upload', views.upload_traces),
     path('api/optimizer/run', views.run_prompt_optimizer),
     path('api/optimizer/status/<str:task_id>', views.optimizer_status),
     path('api/optimizer/cancel/<str:task_id>', views.optimizer_cancel),
