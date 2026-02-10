@@ -2963,15 +2963,23 @@ function renderPromptDetail(promptId) {
         (st.preview.agents.length ? '<span style="color:var(--copper)">Agents: ' + st.preview.agents.join(', ') + '</span>' : '') +
       '</div>' +
       (st.preview?.agents?.length > 0 ? '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;margin-bottom:4px;font-size:.75rem"><label style="color:var(--text-dim);font-weight:500;white-space:nowrap">Optimize for Agent</label><select onchange="optimizerState.selectedAgent=this.value" style="flex:1;max-width:260px;font-family:\'DM Sans\',monospace;font-size:.78rem;border:1px solid var(--copper);border-radius:var(--radius-sm);padding:4px 8px;background:var(--bg);color:var(--text)">' + st.preview.agents.map(function(a){ return '<option value="' + a + '"' + (a === st.selectedAgent ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></div>' : '') : '') +
-      '<div style="display:flex;align-items:end;gap:12px">' +
+      '<div id="optimizer-apikey-row" style="display:flex;align-items:end;gap:12px">' +
         '<div style="flex:1">' +
-          '<label class="agent-field-label" style="margin-bottom:3px;display:block">OpenAI API Key <span style="color:var(--text-dim);font-weight:400">(stored locally)</span></label>' +
+          '<label class="agent-field-label" style="margin-bottom:3px;display:block">OpenAI API Key <span style="color:var(--text-dim);font-weight:400">(only needed without backend)</span></label>' +
           '<input type="password" id="optimizerApiKey" value="' + st.apiKey + '" placeholder="sk-..." style="width:100%;font-family:\'DM Sans\',monospace;font-size:.78rem" onchange="optimizerState.apiKey=this.value;localStorage.setItem(\'arcana-openai-key\',this.value)">' +
         '</div>' +
       '</div>' +
     '</div>' +
 
     (st.running ? '<div id="optimizer-progress" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px"><div class="spinner" style="width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--copper);border-radius:50%;animation:spin .8s linear infinite"></div><span style="font-size:.88rem;color:var(--text)">Running optimization...</span></div><div id="optimizer-elapsed" style="font-size:.72rem;color:var(--text-dim)">Sending data to LLM. This may take 15-30 seconds per row.</div></div>' : '');
+
+  // Hide API key field when backend is available (backend has its own key)
+  fetch('/health', { signal: AbortSignal.timeout(2000) }).then(function(r) {
+    if (r.ok) {
+      var keyRow = document.getElementById('optimizer-apikey-row');
+      if (keyRow) keyRow.style.display = 'none';
+    }
+  }).catch(function() {});
 
   // Results section (reuse existing rendering logic)
   if (hasResults) {
@@ -3469,7 +3477,10 @@ async function runOptimizer() {
     return;
   }
 
-  if (!apiKey) {
+  // Only require API key for client-side path (backend has its own key)
+  var backendUp = false;
+  try { var hc = await fetch('/health', { signal: AbortSignal.timeout(2000) }); backendUp = hc.ok; } catch(e) {}
+  if (!apiKey && !backendUp) {
     alert('Please enter your OpenAI API key to run the optimizer.');
     return;
   }
