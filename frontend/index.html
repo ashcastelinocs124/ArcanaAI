@@ -354,13 +354,9 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
         <span>ArcanaAI</span> <span>/</span> <span class="current" id="breadcrumb-current">Overview</span>
       </div>
       <div class="header-actions" style="gap:10px">
-        <div id="apikey-status" style="display:flex;align-items:center;gap:6px;font-size:.75rem;cursor:pointer" onclick="toggleApiKeyInput()">
+        <div id="apikey-status" style="display:flex;align-items:center;gap:6px;font-size:.75rem;cursor:pointer" onclick="showApiKeyModal()">
           <span id="apikey-dot" style="width:7px;height:7px;border-radius:50%;background:var(--red)"></span>
           <span id="apikey-label" style="color:var(--text-dim)">No API Key</span>
-        </div>
-        <div id="apikey-input-wrap" style="display:none;align-items:center;gap:6px">
-          <input type="password" id="globalApiKey" placeholder="sk-..." style="width:220px;padding:4px 8px;font-size:.75rem;font-family:var(--font-body);background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm)" onkeydown="if(event.key==='Enter')saveGlobalApiKey()">
-          <button class="btn btn-ghost" style="font-size:.72rem;padding:4px 10px" onclick="saveGlobalApiKey()">Save</button>
         </div>
         <button class="btn btn-ghost" onclick="location.reload()">Refresh</button>
       </div>
@@ -403,26 +399,31 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
 // ===== GLOBAL API KEY =====
 var globalApiKey = localStorage.getItem('arcana-openai-key') || '';
 
-function toggleApiKeyInput() {
-  var wrap = document.getElementById('apikey-input-wrap');
-  var inp = document.getElementById('globalApiKey');
-  if (wrap.style.display === 'none' || wrap.style.display === '') {
-    wrap.style.display = 'flex';
-    inp.value = globalApiKey;
-    inp.focus();
-  } else {
-    wrap.style.display = 'none';
-  }
+function showApiKeyModal() {
+  var modal = document.getElementById('apikey-modal');
+  var inp = document.getElementById('modalApiKey');
+  modal.style.display = 'flex';
+  inp.value = globalApiKey;
+  setTimeout(function() { inp.focus(); }, 100);
 }
 
-function saveGlobalApiKey() {
-  var inp = document.getElementById('globalApiKey');
+function submitApiKeyModal() {
+  var inp = document.getElementById('modalApiKey');
   globalApiKey = (inp.value || '').trim();
+  if (!globalApiKey) { inp.style.borderColor = 'var(--red)'; return; }
   localStorage.setItem('arcana-openai-key', globalApiKey);
   optimizerState.apiKey = globalApiKey;
-  document.getElementById('apikey-input-wrap').style.display = 'none';
+  document.getElementById('apikey-modal').style.display = 'none';
   updateApiKeyStatus();
 }
+
+function dismissApiKeyModal() {
+  document.getElementById('apikey-modal').style.display = 'none';
+}
+
+// Back-compat alias
+function toggleApiKeyInput() { showApiKeyModal(); }
+function saveGlobalApiKey() { submitApiKeyModal(); }
 
 function updateApiKeyStatus() {
   var dot = document.getElementById('apikey-dot');
@@ -3020,7 +3021,7 @@ function renderPromptDetail(promptId) {
       '</div>' +
       (st.preview?.agents?.length > 0 ? '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;margin-bottom:4px;font-size:.75rem"><label style="color:var(--text-dim);font-weight:500;white-space:nowrap">Optimize for Agent</label><select onchange="optimizerState.selectedAgent=this.value" style="flex:1;max-width:260px;font-family:\'DM Sans\',monospace;font-size:.78rem;border:1px solid var(--copper);border-radius:var(--radius-sm);padding:4px 8px;background:var(--bg);color:var(--text)">' + st.preview.agents.map(function(a){ return '<option value="' + a + '"' + (a === st.selectedAgent ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></div>' : '') : '') +
       '<div id="optimizer-apikey-row" style="display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text-dim)">' +
-        (globalApiKey ? '<span style="color:var(--green)">&#10003;</span> API Key set (via header bar)' : '<span style="color:var(--red)">&#10007;</span> <a href="#" onclick="toggleApiKeyInput();return false" style="color:var(--copper)">Set your API key</a> in the header bar') +
+        (globalApiKey ? '<span style="color:var(--green)">&#10003;</span> API Key set' : '<span style="color:var(--red)">&#10007;</span> <a href="#" onclick="showApiKeyModal();return false" style="color:var(--copper)">Set your API key</a>') +
         '<input type="hidden" id="optimizerApiKey" value="' + globalApiKey + '">' +
       '</div>' +
     '</div>' +
@@ -4183,8 +4184,8 @@ window.executeWorkflow = executeWorkflow;
 
 // ===== INIT =====
 updateApiKeyStatus();
-// Prompt for API key if not set
-if (!globalApiKey) { setTimeout(toggleApiKeyInput, 500); }
+// Show API key modal on first visit
+if (!globalApiKey) { setTimeout(showApiKeyModal, 300); }
 // Load trace data from API (DB-backed), fall back to static data.json
 apiFetch('/api/traces').then(r => r.ok ? r.json() : null).then(json => {
   if (json && json.journeys && json.journeys.length > 0) {
@@ -4209,5 +4210,18 @@ apiFetch('/api/traces').then(r => r.ok ? r.json() : null).then(json => {
 });
 renderOverview();
 </script>
+<!-- API Key Modal -->
+<div id="apikey-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:36px 40px;max-width:440px;width:90%;text-align:center">
+    <div style="font-family:var(--font-display);font-size:1.6rem;color:var(--copper);margin-bottom:6px">ArcanaAI</div>
+    <div style="font-size:.88rem;color:var(--text-secondary);margin-bottom:24px">Enter your OpenAI API key to enable LLM features like cascade evaluation, workflow execution, and prompt optimization.</div>
+    <input type="password" id="modalApiKey" placeholder="sk-proj-..." style="width:100%;padding:10px 14px;font-size:.88rem;font-family:var(--font-body);background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;outline:none" onkeydown="if(event.key==='Enter')submitApiKeyModal()">
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button onclick="submitApiKeyModal()" style="padding:9px 28px;font-size:.85rem;font-family:var(--font-body);font-weight:500;background:var(--copper);color:#fff;border:none;border-radius:var(--radius);cursor:pointer">Save Key</button>
+      <button onclick="dismissApiKeyModal()" style="padding:9px 28px;font-size:.85rem;font-family:var(--font-body);font-weight:500;background:transparent;color:var(--text-dim);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer">Skip</button>
+    </div>
+    <div style="font-size:.7rem;color:var(--text-dim);margin-top:16px">Your key is stored in your browser only and sent directly to OpenAI. It is never saved on our server.</div>
+  </div>
+</div>
 </body>
 </html>
