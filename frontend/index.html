@@ -353,7 +353,15 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
       <div class="breadcrumb" id="breadcrumb">
         <span>ArcanaAI</span> <span>/</span> <span class="current" id="breadcrumb-current">Overview</span>
       </div>
-      <div class="header-actions">
+      <div class="header-actions" style="gap:10px">
+        <div id="apikey-status" style="display:flex;align-items:center;gap:6px;font-size:.75rem;cursor:pointer" onclick="toggleApiKeyInput()">
+          <span id="apikey-dot" style="width:7px;height:7px;border-radius:50%;background:var(--red)"></span>
+          <span id="apikey-label" style="color:var(--text-dim)">No API Key</span>
+        </div>
+        <div id="apikey-input-wrap" style="display:none;align-items:center;gap:6px">
+          <input type="password" id="globalApiKey" placeholder="sk-..." style="width:220px;padding:4px 8px;font-size:.75rem;font-family:var(--font-body);background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm)" onkeydown="if(event.key==='Enter')saveGlobalApiKey()">
+          <button class="btn btn-ghost" style="font-size:.72rem;padding:4px 10px" onclick="saveGlobalApiKey()">Save</button>
+        </div>
         <button class="btn btn-ghost" onclick="location.reload()">Refresh</button>
       </div>
     </div>
@@ -392,6 +400,54 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
 </div>
 
 <script>
+// ===== GLOBAL API KEY =====
+var globalApiKey = localStorage.getItem('arcana-openai-key') || '';
+
+function toggleApiKeyInput() {
+  var wrap = document.getElementById('apikey-input-wrap');
+  var inp = document.getElementById('globalApiKey');
+  if (wrap.style.display === 'none' || wrap.style.display === '') {
+    wrap.style.display = 'flex';
+    inp.value = globalApiKey;
+    inp.focus();
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function saveGlobalApiKey() {
+  var inp = document.getElementById('globalApiKey');
+  globalApiKey = (inp.value || '').trim();
+  localStorage.setItem('arcana-openai-key', globalApiKey);
+  optimizerState.apiKey = globalApiKey;
+  document.getElementById('apikey-input-wrap').style.display = 'none';
+  updateApiKeyStatus();
+}
+
+function updateApiKeyStatus() {
+  var dot = document.getElementById('apikey-dot');
+  var label = document.getElementById('apikey-label');
+  if (globalApiKey) {
+    dot.style.background = 'var(--green)';
+    label.textContent = 'API Key Set';
+    label.style.color = 'var(--text-secondary)';
+  } else {
+    dot.style.background = 'var(--red)';
+    label.textContent = 'No API Key';
+    label.style.color = 'var(--text-dim)';
+  }
+}
+
+// Helper: build fetch options with API key header
+function apiFetch(url, options) {
+  options = options || {};
+  options.headers = options.headers || {};
+  if (globalApiKey) {
+    options.headers['X-API-Key'] = globalApiKey;
+  }
+  return fetch(url, options);
+}
+
 // ===== DATA STATE (loaded via upload) =====
 let DATA = {"description":"","schema_version":"1.0","journeys":[]};
 let dataLoaded = false;
@@ -1392,7 +1448,7 @@ async function replaceWithOptimizedPrompt(agentName, traceId) {
     statusText.textContent = 'Connecting to backend...';
 
     try {
-      var response = await fetch('/api/workflow/stream', {
+      var response = await apiFetch('/api/workflow/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1593,7 +1649,7 @@ function renderDAGViewer(selectedTrace) {
   if (!dataLoaded) return renderEmptyState('page-dagviewer', 'No DAGs to Display', 'Upload agent logs to visualize execution DAGs and run workflows.');
   // Eagerly cache workflow topologies (needed for cascade → optimizer bridge)
   if (!window._workflowTopologies) {
-    fetch('/api/workflow/topologies', { signal: AbortSignal.timeout(3000) })
+    apiFetch('/api/workflow/topologies', { signal: AbortSignal.timeout(3000) })
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(data) { if (data) window._workflowTopologies = data; })
       .catch(function() {});
@@ -2005,7 +2061,7 @@ async function rerunWithOptimizedPrompt() {
   var startTime = Date.now();
 
   try {
-    var response = await fetch('/api/workflow/stream', {
+    var response = await apiFetch('/api/workflow/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2114,7 +2170,7 @@ async function loadPipelineFromBackend(traceId) {
     };
     if (traceId) payload.trace_id = traceId;
 
-    const response = await fetch('/api/pipeline/analyze', {
+    const response = await apiFetch('/api/pipeline/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -2963,23 +3019,13 @@ function renderPromptDetail(promptId) {
         (st.preview.agents.length ? '<span style="color:var(--copper)">Agents: ' + st.preview.agents.join(', ') + '</span>' : '') +
       '</div>' +
       (st.preview?.agents?.length > 0 ? '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;margin-bottom:4px;font-size:.75rem"><label style="color:var(--text-dim);font-weight:500;white-space:nowrap">Optimize for Agent</label><select onchange="optimizerState.selectedAgent=this.value" style="flex:1;max-width:260px;font-family:\'DM Sans\',monospace;font-size:.78rem;border:1px solid var(--copper);border-radius:var(--radius-sm);padding:4px 8px;background:var(--bg);color:var(--text)">' + st.preview.agents.map(function(a){ return '<option value="' + a + '"' + (a === st.selectedAgent ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></div>' : '') : '') +
-      '<div id="optimizer-apikey-row" style="display:flex;align-items:end;gap:12px">' +
-        '<div style="flex:1">' +
-          '<label class="agent-field-label" style="margin-bottom:3px;display:block">OpenAI API Key <span style="color:var(--text-dim);font-weight:400">(only needed without backend)</span></label>' +
-          '<input type="password" id="optimizerApiKey" value="' + st.apiKey + '" placeholder="sk-..." style="width:100%;font-family:\'DM Sans\',monospace;font-size:.78rem" onchange="optimizerState.apiKey=this.value;localStorage.setItem(\'arcana-openai-key\',this.value)">' +
-        '</div>' +
+      '<div id="optimizer-apikey-row" style="display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text-dim)">' +
+        (globalApiKey ? '<span style="color:var(--green)">&#10003;</span> API Key set (via header bar)' : '<span style="color:var(--red)">&#10007;</span> <a href="#" onclick="toggleApiKeyInput();return false" style="color:var(--copper)">Set your API key</a> in the header bar') +
+        '<input type="hidden" id="optimizerApiKey" value="' + globalApiKey + '">' +
       '</div>' +
     '</div>' +
 
     (st.running ? '<div id="optimizer-progress" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px"><div class="spinner" style="width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--copper);border-radius:50%;animation:spin .8s linear infinite"></div><span style="font-size:.88rem;color:var(--text)">Running optimization...</span></div><div id="optimizer-elapsed" style="font-size:.72rem;color:var(--text-dim)">Sending data to LLM. This may take 15-30 seconds per row.</div></div>' : '');
-
-  // Hide API key field when backend is available (backend has its own key)
-  fetch('/health', { signal: AbortSignal.timeout(2000) }).then(function(r) {
-    if (r.ok) {
-      var keyRow = document.getElementById('optimizer-apikey-row');
-      if (keyRow) keyRow.style.display = 'none';
-    }
-  }).catch(function() {});
 
   // Results section (reuse existing rendering logic)
   if (hasResults) {
@@ -3313,7 +3359,7 @@ function selectNewPromptSource(source) {
       '</select></div>' +
       '<div id="newPromptAgentWrap"></div>';
     // Try to fetch live topologies for agent names
-    fetch('/api/workflow/topologies', { signal: AbortSignal.timeout(3000) })
+    apiFetch('/api/workflow/topologies', { signal: AbortSignal.timeout(3000) })
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(data) { if (data) window._workflowTopologies = data; })
       .catch(function() {});
@@ -3454,7 +3500,7 @@ async function runOptimizer() {
   var template = document.getElementById('promptTemplate')?.value || optimizerState.promptTemplate;
   var targetScore = parseFloat(document.getElementById('targetScore')?.value || optimizerState.targetScore);
   var maxIters = parseInt(document.getElementById('maxIters')?.value || optimizerState.maxIters);
-  var apiKey = document.getElementById('optimizerApiKey')?.value || optimizerState.apiKey;
+  var apiKey = globalApiKey || document.getElementById('optimizerApiKey')?.value || optimizerState.apiKey;
   var model = document.getElementById('optimizerModel')?.value || optimizerState.model;
 
   // Check if this is a workflow-sourced prompt (no Excel required)
@@ -3477,11 +3523,9 @@ async function runOptimizer() {
     return;
   }
 
-  // Only require API key for client-side path (backend has its own key)
-  var backendUp = false;
-  try { var hc = await fetch('/health', { signal: AbortSignal.timeout(2000) }); backendUp = hc.ok; } catch(e) {}
-  if (!apiKey && !backendUp) {
-    alert('Please enter your OpenAI API key to run the optimizer.');
+  if (!apiKey) {
+    alert('Please set your OpenAI API key using the key icon in the header bar.');
+    toggleApiKeyInput();
     return;
   }
 
@@ -3552,7 +3596,7 @@ async function runOptimizer() {
       var overrides = {};
       if (wfAgentTopo) overrides[wfAgentTopo] = improvedTemplate;
 
-      var wfResp = await fetch('/api/workflow/stream', {
+      var wfResp = await apiFetch('/api/workflow/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3678,7 +3722,7 @@ async function runOptimizer() {
   // Check backend health
   var backendAvailable = false;
   try {
-    var healthResp = await fetch('/health', { signal: AbortSignal.timeout(3000) });
+    var healthResp = await apiFetch('/health', { signal: AbortSignal.timeout(3000) });
     backendAvailable = healthResp.ok;
   } catch (e) {
     backendAvailable = false;
@@ -3711,7 +3755,7 @@ async function runOptimizer() {
       }
 
       // Submit optimization task (returns immediately with task_id)
-      var response = await fetch('/api/optimizer/run', {
+      var response = await apiFetch('/api/optimizer/run', {
         method: 'POST',
         body: formData
       });
@@ -3732,7 +3776,7 @@ async function runOptimizer() {
       // Poll for results
       var pollInterval = setInterval(async function() {
         try {
-          var statusResp = await fetch('/api/optimizer/status/' + taskId);
+          var statusResp = await apiFetch('/api/optimizer/status/' + taskId);
           var statusData = await statusResp.json();
 
           if (statusData.state === 'PROGRESS') {
@@ -4022,7 +4066,7 @@ async function executeWorkflow() {
   try {
     statusText.innerHTML = 'Connecting to backend...';
 
-    const response = await fetch('/api/workflow/stream', {
+    const response = await apiFetch('/api/workflow/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -4138,8 +4182,11 @@ async function executeWorkflow() {
 window.executeWorkflow = executeWorkflow;
 
 // ===== INIT =====
+updateApiKeyStatus();
+// Prompt for API key if not set
+if (!globalApiKey) { setTimeout(toggleApiKeyInput, 500); }
 // Load trace data from API (DB-backed), fall back to static data.json
-fetch('/api/traces').then(r => r.ok ? r.json() : null).then(json => {
+apiFetch('/api/traces').then(r => r.ok ? r.json() : null).then(json => {
   if (json && json.journeys && json.journeys.length > 0) {
     const data = normalizeUploadedJSON(json);
     if (data) { loadData(data); navigateTo('dagviewer'); return; }
