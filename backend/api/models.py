@@ -113,3 +113,41 @@ class AgentExecution(models.Model):
 
     def __str__(self):
         return f"{self.agent_name} in {self.trace.trace_id}"
+
+
+class BatchUpload(models.Model):
+    """Tracks async batch upload operations via Celery."""
+    batch_id = models.CharField(max_length=100, unique=True)
+    total_traces = models.IntegerField(default=0)
+    created_count = models.IntegerField(default=0)
+    updated_count = models.IntegerField(default=0)
+    failed_count = models.IntegerField(default=0)
+    errors = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=50, default='pending')
+    auto_evaluate = models.BooleanField(default=False)
+    user_goal = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Batch {self.batch_id} ({self.status})"
+
+
+class EvaluationResult(models.Model):
+    """Persists cascade/checkpoint evaluation results for a trace."""
+    trace = models.ForeignKey(ExecutionTrace, on_delete=models.CASCADE, related_name='evaluations')
+    user_goal = models.TextField()
+    evaluation_mode = models.CharField(max_length=50, default='cascade')
+    result_data = models.JSONField(default=dict, blank=True)
+    llm_calls_made = models.IntegerField(default=0)
+    duration_ms = models.FloatField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Eval {self.trace.trace_id} ({self.evaluation_mode})"

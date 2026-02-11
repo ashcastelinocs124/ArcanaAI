@@ -42,6 +42,10 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_HEADERS = [
+    'accept', 'authorization', 'content-type', 'user-agent',
+    'x-csrftoken', 'x-requested-with', 'x-api-key',
+]
 
 ROOT_URLCONF = 'arcana.urls'
 
