@@ -1859,7 +1859,8 @@ function renderApiPage() {
   if (!apiPageState.traceId) apiPageState.traceId = generateProxyTraceId();
   var tid = apiPageState.traceId;
   var host = location.hostname || 'localhost';
-  var proxyUrl = location.protocol + '//' + host + ':5000/api/v1/proxy/chat/completions';
+  var portSuffix = (location.port && location.port !== '443' && location.port !== '80') ? ':' + (host === 'localhost' ? '5000' : location.port) : '';
+  var proxyUrl = location.protocol + '//' + host + portSuffix + '/api/v1/proxy/chat/completions';
 
   var snippet = 'from openai import OpenAI\n'
     + '\n'
