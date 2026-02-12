@@ -5,6 +5,7 @@ Endpoints:
   POST   /api/v1/traces                     — Create traces (3 formats, auto-normalizes)
   GET    /api/v1/traces                     — List traces with pagination + filtering
   GET    /api/v1/traces/:trace_id           — Get single trace with agents + DAG
+  PATCH  /api/v1/traces/:trace_id           — Update trace metadata (workflow_type, journey_name)
   DELETE /api/v1/traces/:trace_id           — Delete trace and related data
   POST   /api/v1/traces/:trace_id/evaluate  — Trigger cascade evaluation
   GET    /api/v1/traces/:trace_id/evaluation— Get evaluation results
@@ -33,7 +34,7 @@ if _project_root not in sys.path:
 
 from semantic_pipeline import AgentDAG, CascadeEvaluator, TaskProgressMonitor, extract_agent_logs
 
-from .models import AgentExecution, BatchUpload, EvaluationResult, ExecutionTrace
+from .models import AgentExecution, BatchUpload, EvaluationResult, ExecutionTrace, PromptOverride
 from .response import api_error, api_response
 from .validators import ValidationError, normalize_input
 
@@ -380,11 +381,13 @@ def _create_traces(request):
 # Endpoint: GET/DELETE /api/v1/traces/:trace_id
 # ===========================================================================
 
-@require_http_methods(["GET", "DELETE"])
+@require_http_methods(["GET", "PATCH", "DELETE"])
 def trace_detail(request, trace_id):
-    """Dispatch to get or delete."""
+    """Dispatch to get, patch, or delete."""
     if request.method == "DELETE":
         return _delete_trace(request, trace_id)
+    if request.method == "PATCH":
+        return _patch_trace(request, trace_id)
     return _get_trace(request, trace_id)
 
 
@@ -425,6 +428,59 @@ def _get_trace(request, trace_id):
         "agents": agents_data,
         "dag": dag_info,
         "raw_journey": trace.raw_journey,
+    })
+
+
+def _patch_trace(request, trace_id):
+    """PATCH /api/v1/traces/:trace_id — update trace metadata (workflow_type, journey_name)."""
+    try:
+        trace = ExecutionTrace.objects.get(trace_id=trace_id)
+    except ExecutionTrace.DoesNotExist:
+        return api_error(f"Trace '{trace_id}' not found", code="not_found", status=404)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return api_error("Invalid JSON body", code="invalid_json", status=400)
+
+    update_fields = []
+
+    if "workflow_type" in body:
+        wt = body["workflow_type"]
+        if not isinstance(wt, str) or not wt.strip():
+            return api_error("workflow_type must be a non-empty string", code="invalid_field", status=400)
+        if len(wt) > 100:
+            return api_error("workflow_type exceeds 100 characters", code="invalid_field", status=400)
+        trace.workflow_type = wt
+        update_fields.append("workflow_type")
+
+    if "journey_name" in body:
+        jn = body["journey_name"]
+        if not isinstance(jn, str) or not jn.strip():
+            return api_error("journey_name must be a non-empty string", code="invalid_field", status=400)
+        if len(jn) > 300:
+            return api_error("journey_name exceeds 300 characters", code="invalid_field", status=400)
+        trace.journey_name = jn
+        update_fields.append("journey_name")
+
+    # Inject workflow_type into raw_journey samples metadata
+    if "workflow_type" in body and trace.raw_journey:
+        raw = trace.raw_journey
+        for sample in raw.get("samples", []):
+            meta = sample.setdefault("metadata", {})
+            meta["workflow_type"] = body["workflow_type"]
+        trace.raw_journey = raw
+        if "raw_journey" not in update_fields:
+            update_fields.append("raw_journey")
+
+    if update_fields:
+        trace.save(update_fields=update_fields)
+
+    return api_response({
+        "trace_id": trace.trace_id,
+        "workflow_type": trace.workflow_type,
+        "journey_name": trace.journey_name,
+        "updated_fields": update_fields,
     })
 
 
@@ -633,3 +689,73 @@ def batch_status(request, batch_id):
         "created_at": batch.created_at.isoformat(),
         "completed_at": batch.completed_at.isoformat() if batch.completed_at else None,
     })
+
+
+# ===========================================================================
+# Endpoint: GET/POST /api/v1/traces/:trace_id/prompts
+# ===========================================================================
+
+@require_http_methods(["GET", "POST"])
+def trace_prompts(request, trace_id):
+    """GET — list active prompt overrides; POST — store a new override."""
+    try:
+        trace = ExecutionTrace.objects.get(trace_id=trace_id)
+    except ExecutionTrace.DoesNotExist:
+        return api_error(f"Trace '{trace_id}' not found", code="not_found", status=404)
+
+    if request.method == "GET":
+        return _list_prompt_overrides(trace)
+    return _create_prompt_override(request, trace)
+
+
+def _list_prompt_overrides(trace):
+    """GET /api/v1/traces/:trace_id/prompts — active overrides for a trace."""
+    overrides = PromptOverride.objects.filter(trace=trace, is_active=True)
+    data = [
+        {
+            "id": o.pk,
+            "agent_name": o.agent_name,
+            "optimized_prompt": o.optimized_prompt,
+            "original_prompt": o.original_prompt,
+            "cascade_feedback": o.cascade_feedback,
+            "created_at": o.created_at.isoformat(),
+        }
+        for o in overrides
+    ]
+    return api_response(data, meta={"total": len(data), "trace_id": trace.trace_id})
+
+
+def _create_prompt_override(request, trace):
+    """POST /api/v1/traces/:trace_id/prompts — store an optimized prompt."""
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return api_error("Invalid JSON body", code="invalid_json")
+
+    agent_name = body.get("agent_name", "").strip()
+    optimized_prompt = body.get("optimized_prompt", "").strip()
+
+    if not agent_name:
+        return api_error("'agent_name' is required", code="missing_field")
+    if not optimized_prompt:
+        return api_error("'optimized_prompt' is required", code="missing_field")
+
+    # Deactivate any existing active override for this agent
+    PromptOverride.objects.filter(
+        trace=trace, agent_name=agent_name, is_active=True
+    ).update(is_active=False)
+
+    override = PromptOverride.objects.create(
+        trace=trace,
+        agent_name=agent_name,
+        optimized_prompt=optimized_prompt,
+        original_prompt=body.get("original_prompt", ""),
+        cascade_feedback=body.get("cascade_feedback", ""),
+    )
+
+    return api_response({
+        "id": override.pk,
+        "agent_name": override.agent_name,
+        "trace_id": trace.trace_id,
+        "created_at": override.created_at.isoformat(),
+    }, status=201)

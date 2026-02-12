@@ -16,6 +16,9 @@ urlpatterns = [
     path('traces/<str:trace_id>/evaluate', views_v1.trace_evaluate, name='v1-trace-evaluate'),
     path('traces/<str:trace_id>/evaluation', views_v1.trace_evaluation, name='v1-trace-evaluation'),
 
+    # Prompt overrides
+    path('traces/<str:trace_id>/prompts', views_v1.trace_prompts, name='v1-trace-prompts'),
+
     # OpenAI-compatible proxy
     path('proxy/', include('api.urls_proxy')),
 ]

@@ -136,6 +136,26 @@ class BatchUpload(models.Model):
         return f"Batch {self.batch_id} ({self.status})"
 
 
+class PromptOverride(models.Model):
+    """Persists optimized prompt overrides per agent per trace."""
+    trace = models.ForeignKey(ExecutionTrace, on_delete=models.CASCADE, related_name='prompt_overrides')
+    agent_name = models.CharField(max_length=200)
+    original_prompt = models.TextField(blank=True, default='')
+    optimized_prompt = models.TextField()
+    cascade_feedback = models.TextField(blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['trace', 'agent_name', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.agent_name} override for {self.trace.trace_id} ({'active' if self.is_active else 'inactive'})"
+
+
 class EvaluationResult(models.Model):
     """Persists cascade/checkpoint evaluation results for a trace."""
     trace = models.ForeignKey(ExecutionTrace, on_delete=models.CASCADE, related_name='evaluations')

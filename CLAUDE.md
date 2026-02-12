@@ -239,6 +239,7 @@ Use these trace IDs to test different DAG topologies.
 10. **Optimizer `{input}` recovery** — LLMs sometimes drop the `{input}` placeholder from improved prompts. Instead of `break`ing the loop (giving up), append `\n\n{input}` to the LLM's output to salvage the improvement. *(Feb 9 2026)*
 11. **`isWorkflowSource` short-circuits the optimizer** — `runOptimizer()` has two paths: workflow re-execution (for testing prompts by re-running the workflow) and actual optimization (backend Celery / client-side). Cascade prompts have `source: 'workflow'`, so they hit the workflow path and the optimizer never runs. Fix: only take the workflow path when there's no uploaded Excel file. *(Feb 9 2026)*
 12. **Agent names in `data.json` don't match workflow topology** — Static data uses `EarningsAnalystAgent` but topology has `EarningsAnalyst` (no "Agent" suffix). This breaks both topology lookup (no system prompt found) and prompt overrides (wrong key). Fix: fuzzy match in `createPromptFromCascade` + store `topoAgentName` separately for override keys. *(Feb 9 2026)*
+13. **Celery worker doesn't auto-reload** — Unlike Django's `runserver`, Celery workers load code once at startup. After changing `tasks.py` (or any module it imports), you **must restart the worker** or it runs stale code. Symptoms: `TypeError: unexpected keyword argument` or silently wrong behavior. Fix: restart worker, or use `celery -A arcana worker --loglevel=info --autoreload` (requires `watchdog`). *(Feb 11 2026)*
 
 ### Lessons Learned (Timestamped)
 

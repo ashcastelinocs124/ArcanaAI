@@ -750,6 +750,60 @@ function getJourneyTokens(j) {
   }, 0);
 }
 
+// Model pricing per 1M tokens (USD) — input / output
+var MODEL_PRICING = {
+  'gpt-4o':       { input: 2.50,  output: 10.00 },
+  'gpt-4o-mini':  { input: 0.15,  output: 0.60  },
+  'gpt-4.1-mini': { input: 0.40,  output: 1.60  },
+  'gpt-4.1':      { input: 2.00,  output: 8.00  },
+  'gpt-4.1-nano': { input: 0.10,  output: 0.40  },
+  'gpt-4-turbo':  { input: 10.00, output: 30.00 },
+  'gpt-4':        { input: 30.00, output: 60.00 },
+  'gpt-3.5-turbo':{ input: 0.50,  output: 1.50  },
+  'gpt-5':        { input: 10.00, output: 30.00 },
+  'o3-mini':      { input: 1.10,  output: 4.40  },
+  'o3':           { input: 10.00, output: 40.00 },
+  'o1-preview':   { input: 15.00, output: 60.00 },
+  'claude-3-sonnet-20240229': { input: 3.00,  output: 15.00 },
+  'claude-3-opus-20240229':   { input: 15.00, output: 75.00 },
+  'unknown':      { input: 1.00,  output: 3.00  }
+};
+
+function getModelPricing(modelName) {
+  if (!modelName) return MODEL_PRICING['unknown'];
+  return MODEL_PRICING[modelName] || MODEL_PRICING['unknown'];
+}
+
+function getWorkflowAnalytics() {
+  return journeys.map(function(j) {
+    var inputTokens = 0, outputTokens = 0, cost = 0;
+    var modelMap = {};
+    j.samples.forEach(function(s) {
+      var t = s.telemetry?.tokens || {};
+      var inp = t.prompt_tokens || 0;
+      var out = t.completion_tokens || 0;
+      inputTokens += inp;
+      outputTokens += out;
+      var m = s.model_parameters?.model || 'unknown';
+      modelMap[m] = (modelMap[m] || 0) + 1;
+      var p = getModelPricing(m);
+      cost += (inp / 1e6) * p.input + (out / 1e6) * p.output;
+    });
+    var topModels = Object.entries(modelMap).sort(function(a,b){ return b[1]-a[1]; });
+    return {
+      trace_id: j.trace_id,
+      journey_name: j.journey_name,
+      agents: j.samples.length,
+      inputTokens: inputTokens,
+      outputTokens: outputTokens,
+      totalTokens: inputTokens + outputTokens,
+      cost: cost,
+      topModels: topModels,
+      latency: getJourneyLatency(j)
+    };
+  });
+}
+
 function truncId(id) { return id.substring(0, 18) + '...'; }
 function truncText(t, n) { return t && t.length > n ? t.substring(0, n) + '...' : (t || '(empty)'); }
 
@@ -758,7 +812,7 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
   item.addEventListener('click', () => { navigateTo(item.dataset.page); });
 });
 
-function navigateTo(page) {
+function navigateTo(page, opts) {
   currentPage = page;
   currentTraceId = null;
   document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
@@ -769,7 +823,7 @@ function navigateTo(page) {
   if (pageEl) { pageEl.classList.add('active'); }
   const names = { overview:'Overview', traces:'Traces', metrics:'Metrics', logs:'Logs', pipeline:'Goal Monitor', optimizer:'Prompt Optimizer', dagviewer:'DAG Viewer', evaluations:'Evaluations', promptlib:'Prompt Library', api:'API', settings:'Settings', tracedetail:'Trace Detail' };
   document.getElementById('breadcrumb-current').textContent = names[page] || page;
-  renderPage(page);
+  renderPage(page, opts);
 }
 
 function navigateToTrace(traceId) {
@@ -783,7 +837,7 @@ function navigateToTrace(traceId) {
 }
 
 // ===== RENDER PAGES =====
-function renderPage(page) {
+function renderPage(page, opts) {
   switch(page) {
     case 'overview': renderOverview(); break;
     case 'traces': renderTraces(); break;
@@ -791,7 +845,7 @@ function renderPage(page) {
     case 'logs': renderLogs(); break;
     case 'pipeline': renderPipeline(); break;
     case 'optimizer': renderOptimizer(); break;
-    case 'dagviewer': renderDAGViewer(); break;
+    case 'dagviewer': renderDAGViewer(opts && opts.traceId); break;
     case 'evaluations': renderEvaluations(); break;
     case 'promptlib': renderPromptLibrary(); break;
     case 'api': renderApiPage(); break;
@@ -922,26 +976,55 @@ function renderOverview() {
       </div>
     </div>
 
+    ${(() => {
+      const analytics = getWorkflowAnalytics();
+      const totalCost = analytics.reduce((s, w) => s + w.cost, 0);
+      const totalIn = analytics.reduce((s, w) => s + w.inputTokens, 0);
+      const totalOut = analytics.reduce((s, w) => s + w.outputTokens, 0);
+      const maxCost = Math.max(...analytics.map(w => w.cost), 0.001);
+      return `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      <div class="metric-card" style="text-align:center;padding:16px">
+        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:6px">Total Input Tokens</div>
+        <div style="font-family:var(--font-display);font-size:1.4rem;color:var(--copper)">${totalIn.toLocaleString()}</div>
+      </div>
+      <div class="metric-card" style="text-align:center;padding:16px">
+        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:6px">Total Output Tokens</div>
+        <div style="font-family:var(--font-display);font-size:1.4rem;color:var(--blue)">${totalOut.toLocaleString()}</div>
+      </div>
+      <div class="metric-card" style="text-align:center;padding:16px">
+        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:6px">Est. Total Cost</div>
+        <div style="font-family:var(--font-display);font-size:1.4rem;color:var(--green)">$${totalCost < 0.01 ? totalCost.toFixed(4) : totalCost.toFixed(3)}</div>
+      </div>
+    </div>
+
     <div class="table-wrap">
       <div class="table-header">
-        <div class="table-title">Recent Traces</div>
+        <div class="table-title">Workflow Analytics</div>
         <div style="font-size:.75rem;color:var(--text-dim);cursor:pointer" onclick="navigateTo('traces')">View all &rarr;</div>
       </div>
       <table>
-        <thead><tr><th>Journey</th><th>Trace ID</th><th>Agents</th><th>Status</th><th>Latency</th><th>Tokens</th></tr></thead>
-        <tbody>${journeys.slice(0,6).map(j => {
-          const st = getJourneyStatus(j);
-          return `<tr onclick="navigateToTrace('${j.trace_id}')">
-            <td style="font-weight:500">${j.journey_name}</td>
-            <td><span class="trace-id">${truncId(j.trace_id)}</span></td>
-            <td>${j.samples.length}</td>
-            <td><span class="badge badge-${st}"><span class="dot dot-${st}"></span>${st}</span></td>
-            <td>${getJourneyLatency(j).toFixed(2)}s</td>
-            <td>${getJourneyTokens(j).toLocaleString()}</td>
+        <thead><tr><th>Workflow</th><th>Agents</th><th style="text-align:right">Input Tokens</th><th style="text-align:right">Output Tokens</th><th style="text-align:right">Est. Cost</th><th>Top Models</th><th></th></tr></thead>
+        <tbody>${analytics.map(w => {
+          const costPct = w.cost / maxCost * 100;
+          return `<tr onclick="navigateToTrace('${w.trace_id}')" style="cursor:pointer">
+            <td style="font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${w.journey_name}</td>
+            <td>${w.agents}</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums">${w.inputTokens.toLocaleString()}</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums">${w.outputTokens.toLocaleString()}</td>
+            <td style="text-align:right">
+              <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+                <div style="width:48px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;flex-shrink:0"><div style="width:${costPct}%;height:100%;background:var(--copper);border-radius:2px"></div></div>
+                <span style="font-variant-numeric:tabular-nums;min-width:48px;text-align:right">$${w.cost < 0.01 ? w.cost.toFixed(4) : w.cost.toFixed(3)}</span>
+              </div>
+            </td>
+            <td style="font-size:.75rem;color:var(--text-secondary)">${w.topModels.slice(0,2).map(function(e){return e[0].split('-').slice(0,3).join('-')+' ('+e[1]+')';}).join(', ')}</td>
+            <td style="width:20px;color:var(--text-dim);font-size:.7rem">&rsaquo;</td>
           </tr>`;
         }).join('')}</tbody>
       </table>
-    </div>
+    </div>`;
+    })()}
   `;
 }
 
@@ -1327,35 +1410,72 @@ function createPromptFromCascade(agentId, traceId) {
   var journey = journeys.find(function(j) { return j.trace_id === traceId; });
   var agent = journey ? journey.samples.find(function(s) { return s.agent_id === agentId; }) : null;
   var agentName = agent ? agent.agent_name : agentId;
+  // Determine workflow type: check the specific agent first, then scan all samples
   var workflowType = (agent && agent.metadata && agent.metadata.workflow_type) ? agent.metadata.workflow_type : null;
+  console.log('[CASCADE-PROMPT] agent metadata:', agent ? JSON.stringify(agent.metadata || {}) : 'no agent');
+  console.log('[CASCADE-PROMPT] workflowType from agent:', workflowType);
+  if (!workflowType && journey) {
+    for (var wi = 0; wi < journey.samples.length; wi++) {
+      if (journey.samples[wi].metadata && journey.samples[wi].metadata.workflow_type) {
+        workflowType = journey.samples[wi].metadata.workflow_type;
+        console.log('[CASCADE-PROMPT] workflowType from sample[' + wi + ']:', workflowType);
+        break;
+      }
+    }
+  }
+  if (!workflowType) {
+    console.warn('[CASCADE-PROMPT] WARNING: No workflow_type found in any sample metadata! Journey:', traceId, 'Samples:', journey ? journey.samples.length : 0);
+    // Last resort: try to parse from journey_name (format: "Type Name: goal...")
+    if (journey && journey.journey_name) {
+      var jnParts = journey.journey_name.split(':');
+      if (jnParts.length > 1) {
+        var guessedType = jnParts[0].trim().toLowerCase().replace(/\s+/g, '_');
+        console.log('[CASCADE-PROMPT] Guessing workflowType from journey_name:', guessedType);
+        // Verify it exists in topologies
+        if (window._workflowTopologies && window._workflowTopologies[guessedType]) {
+          workflowType = guessedType;
+          console.log('[CASCADE-PROMPT] Confirmed from topologies:', workflowType);
+        }
+      }
+    }
+  }
   var agentRole = (agent && agent.metadata && agent.metadata.role) ? agent.metadata.role : '';
 
   // Get system prompt from cached topologies
+  // IMPORTANT: topology search ALWAYS sets workflowType to the topology where the agent
+  // was found — this overrides any stale lastWorkflowType from a prior manual run
   var systemPrompt = '';
   var topoAgentName = '';  // the actual name in the topology (for prompt overrides)
   if (window._workflowTopologies) {
-    // Try specific workflow type first, then search all topologies
     var searchOrder = workflowType ? [workflowType] : [];
     Object.keys(window._workflowTopologies).forEach(function(wt) {
       if (wt !== workflowType) searchOrder.push(wt);
     });
-    for (var si = 0; si < searchOrder.length && !systemPrompt; si++) {
+    var topoMatched = false;
+    for (var si = 0; si < searchOrder.length && !topoMatched; si++) {
       var topoAgents = window._workflowTopologies[searchOrder[si]];
       if (topoAgents) {
-        // Exact match first, then fuzzy (strip trailing "Agent" suffix from data names)
         var topoAgent = topoAgents.find(function(a) { return a.name === agentName; });
         if (!topoAgent) {
           var stripped = agentName.replace(/Agent$/, '');
           topoAgent = topoAgents.find(function(a) { return a.name === stripped || a.name === stripped + 'Agent'; });
         }
-        if (topoAgent && topoAgent.system_prompt) {
-          systemPrompt = topoAgent.system_prompt;
+        if (topoAgent) {
+          systemPrompt = topoAgent.system_prompt || '';
           topoAgentName = topoAgent.name;
-          if (!workflowType) workflowType = searchOrder[si];
+          workflowType = searchOrder[si];
+          topoMatched = true;
+          console.log('[CASCADE-PROMPT] Topology match:', topoAgentName, 'in', workflowType, systemPrompt ? '(has prompt)' : '(API — no prompt)');
         }
       }
     }
   }
+  // Last fallback: only if topology search found nothing
+  if (!workflowType && workflowState.lastWorkflowType) {
+    workflowType = workflowState.lastWorkflowType;
+    console.log('[CASCADE-PROMPT] Fallback to lastWorkflowType:', workflowType);
+  }
+  console.log('[CASCADE-PROMPT] Final workflowType:', workflowType);
   // Fallback: generate a basic role-based prompt
   if (!systemPrompt) {
     var rolePart = agentRole ? ' Your role: ' + agentRole + '.' : '';
@@ -1369,7 +1489,7 @@ function createPromptFromCascade(agentId, traceId) {
 
   var comments = formatCascadeComments(verdict);
   var promptName = agentName + ' \u2014 Cascade Fix';
-  addPrompt(promptName, agentName, systemPrompt, '', ['cascade-fix'], false, null, 'workflow', workflowType, comments, topoAgentName);
+  addPrompt(promptName, agentName, systemPrompt, '', ['cascade-fix'], false, null, 'workflow', workflowType, comments, topoAgentName, traceId);
 
   // Navigate to the new prompt in optimizer
   var lib = loadPromptLibrary();
@@ -1486,7 +1606,8 @@ async function replaceWithOptimizedPrompt(agentName, traceId) {
         body: JSON.stringify({
           goal: goal,
           workflow_type: workflowType,
-          config: config
+          config: config,
+          source_trace_id: traceId
         })
       });
 
@@ -1535,9 +1656,11 @@ async function replaceWithOptimizedPrompt(agentName, traceId) {
       if (finalJourney.samples) {
         ensureAgentIds(finalJourney);
         journeys.push(finalJourney);
-        DATA.journeys.push(finalJourney);
         dataLoaded = true;
       }
+
+      // Persist the prompt override to backend (best-effort)
+      persistPromptOverride(traceId, overrideKey, prompt.template, '', '');
 
       pipelineState.userGoal = goal;
       pipelineState.evaluationMode = 'cascade';
@@ -1554,8 +1677,7 @@ async function replaceWithOptimizedPrompt(agentName, traceId) {
 
       setTimeout(function() {
         if (workflowDialog) { workflowDialog.remove(); workflowDialog = null; }
-        navigateTo('dagviewer');
-        setTimeout(function() { renderDAGViewer(newTraceId); }, 300);
+        navigateTo('dagviewer', { traceId: newTraceId });
       }, 1500);
 
     } catch (error) {
@@ -1697,7 +1819,7 @@ function renderDAGViewer(selectedTrace) {
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div>
         <div class="section-heading" style="margin-bottom:4px">DAG Viewer</div>
-        <div class="section-sub" style="margin-bottom:0">Interactive execution graph with LLM goal verification.</div>
+        <div class="section-sub" style="margin-bottom:0">Interactive execution graph with cascade evaluation.</div>
       </div>
       <button class="btn btn-primary" onclick="showWorkflowDialog()" style="padding:10px 20px;display:flex;align-items:center;gap:8px">
         <span style="font-size:1.1rem">▶</span> Run Workflow
@@ -1708,11 +1830,6 @@ function renderDAGViewer(selectedTrace) {
       <select id="dagSelect" onchange="renderDAGViewer(this.value)">
         ${journeys.map(j => `<option value="${j.trace_id}" ${j.trace_id === sel ? 'selected' : ''}>${j.journey_name} (${j.trace_id.substring(0,12)}...)</option>`).join('')}
       </select>
-      <input id="dagUserGoal" type="text" placeholder="Enter user goal to verify agent alignment..."
-        value="${pipelineState.userGoal || ''}"
-        style="background:var(--card);padding:10px 14px;min-width:300px;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:.85rem;flex:1"
-      />
-      <button class="btn btn-primary" style="padding:10px 20px;font-size:.85rem" onclick="var tid = document.getElementById('dagSelect')?.value; pipelineState.userGoal = document.getElementById('dagUserGoal').value; pipelineState.evaluationMode = 'cascade'; if(pipelineState.results) delete pipelineState.results[tid]; loadPipelineFromBackend(tid).then(function() { renderDAGViewer(tid); })">Verify Goal</button>
     </div>
 
     ${window._pendingRerun ? `
@@ -1786,11 +1903,11 @@ function renderDAGViewer(selectedTrace) {
     </div>
     ` : (pipelineState.userGoal ? `
     <div style="margin-top:20px;padding:16px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);font-size:.85rem;color:var(--text-secondary);display:flex;align-items:center;gap:8px">
-      ${pipelineState.loading ? '<div style="width:14px;height:14px;border:2px solid var(--copper);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></div> Verifying goal alignment...' : (pipelineState.error ? '<span style="color:var(--yellow)">Backend unavailable: ' + pipelineState.error + '</span>' : 'Click "Verify Goal" to run LLM checkpoints.')}
+      ${pipelineState.loading ? '<div style="width:14px;height:14px;border:2px solid var(--copper);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></div> Verifying goal alignment...' : (pipelineState.error ? '<span style="color:var(--yellow)">Backend unavailable: ' + pipelineState.error + '</span>' : 'Run a workflow to trigger cascade evaluation automatically.')}
     </div>
     ` : `
     <div style="margin-top:20px;padding:16px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);font-size:.85rem;color:var(--text-secondary);display:flex;align-items:center;gap:8px">
-      Enter a user goal above and click "Verify Goal" to check agent alignment with LLM checkpoints every 2 nodes.
+      Click "Run Workflow" to execute the agent topology with a goal. Cascade evaluation runs automatically after completion.
     </div>
     `)}
 
@@ -1848,21 +1965,16 @@ function renderEvaluations() {
 }
 
 // ===== API PAGE =====
-var apiPageState = { traceId: null, loading: false, error: null, success: false };
+var apiPageState = { traceId: null, loading: false, error: null, success: false, workflowType: null, workflowName: '' };
 
 function generateProxyTraceId() {
   var hex = function(n) { return Math.random().toString(16).substring(2, 2+n); };
   return 'tr-proxy-' + hex(4) + '-' + hex(4);
 }
 
-function renderApiPage() {
-  if (!apiPageState.traceId) apiPageState.traceId = generateProxyTraceId();
-  var tid = apiPageState.traceId;
-  var host = location.hostname || 'localhost';
-  var portSuffix = (location.port && location.port !== '443' && location.port !== '80') ? ':' + (host === 'localhost' ? '5000' : location.port) : '';
-  var proxyUrl = location.protocol + '//' + host + portSuffix + '/api/v1/proxy/chat/completions';
-
-  var snippet = 'from openai import OpenAI\n'
+function generateDefaultSnippet(tid, proxyUrl, wfName) {
+  var journeyName = wfName || 'AI Research Summary';
+  return 'from openai import OpenAI\n'
     + '\n'
     + 'client = OpenAI(\n'
     + '    base_url="' + proxyUrl.replace('/chat/completions','') + '",\n'
@@ -1879,7 +1991,7 @@ function renderApiPage() {
     + '        "X-Trace-Id": TRACE_ID,\n'
     + '        "X-Agent-Id": "agent-router-001",\n'
     + '        "X-Agent-Name": "Router",\n'
-    + '        "X-Journey-Name": "AI Research Summary",\n'
+    + '        "X-Journey-Name": "' + journeyName + '",\n'
     + '    },\n'
     + ')\n'
     + '\n'
@@ -1891,7 +2003,7 @@ function renderApiPage() {
     + '        "X-Trace-Id": TRACE_ID,\n'
     + '        "X-Agent-Id": "agent-researcher-002",\n'
     + '        "X-Agent-Name": "Researcher",\n'
-    + '        "X-Parent-Id": "agent-router-001",\n'
+    + '        "X-Parent-Agent-Id": "agent-router-001",\n'
     + '    },\n'
     + ')\n'
     + '\n'
@@ -1903,18 +2015,121 @@ function renderApiPage() {
     + '        "X-Trace-Id": TRACE_ID,\n'
     + '        "X-Agent-Id": "agent-writer-003",\n'
     + '        "X-Agent-Name": "Writer",\n'
-    + '        "X-Parent-Id": "agent-router-001",\n'
+    + '        "X-Parent-Agent-Id": "agent-router-001",\n'
     + '    },\n'
     + ')\n'
     + '\n'
     + 'print("Trace ID:", TRACE_ID)\n'
     + 'print("Writer output:", writer.choices[0].message.content[:200])';
+}
+
+function generateTopologySnippet(tid, proxyUrl, workflowType, agents, wfName) {
+  var varNames = agents.map(function(a) {
+    return a.name.replace(/([A-Z])/g, '_$1').replace(/^_/, '').toLowerCase();
+  });
+  var lines = [];
+  lines.push('from openai import OpenAI');
+  lines.push('');
+  lines.push('client = OpenAI(');
+  lines.push('    base_url="' + proxyUrl.replace('/chat/completions','') + '",');
+  lines.push('    api_key="your-openai-key",  # or set OPENAI_API_KEY env var');
+  lines.push(')');
+  lines.push('');
+  lines.push('TRACE_ID = "' + tid + '"');
+  lines.push('');
+
+  var journeyLabel = wfName || workflowType.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+
+  agents.forEach(function(agent, idx) {
+    var agentId = tid + '-call-' + (idx + 1);
+    var varName = varNames[idx];
+    var parentIds = agent.parent_indices || [];
+    var isRoot = parentIds.length === 0;
+
+    lines.push('# Agent ' + (idx + 1) + ': ' + agent.name + ' (' + agent.role.substring(0, 60) + ')');
+
+    // Build messages — use parent output as input if not root
+    var msgContent;
+    if (isRoot) {
+      msgContent = '"Your task prompt here"';
+    } else {
+      var parentVar = varNames[parentIds[0]];
+      msgContent = parentVar + '.choices[0].message.content';
+    }
+
+    lines.push(varName + ' = client.chat.completions.create(');
+    lines.push('    model="' + (agent.model || 'gpt-4o-mini') + '",');
+    lines.push('    messages=[{"role":"user","content":' + msgContent + '}],');
+    lines.push('    extra_headers={');
+    lines.push('        "X-Trace-Id": TRACE_ID,');
+    lines.push('        "X-Agent-Name": "' + agent.name + '",');
+    lines.push('        "X-Workflow-Type": "' + workflowType + '",');
+    if (isRoot) {
+      lines.push('        "X-Journey-Name": "' + journeyLabel + '",');
+    }
+    if (!isRoot) {
+      var parentAgentId = tid + '-call-' + (parentIds[0] + 1);
+      lines.push('        "X-Parent-Agent-Id": "' + parentAgentId + '",');
+    }
+    lines.push('    },');
+    lines.push(')');
+    lines.push('');
+  });
+
+  lines.push('print("Trace ID:", TRACE_ID)');
+  var lastVar = varNames[varNames.length - 1];
+  lines.push('print("' + agents[agents.length - 1].name + ' output:", ' + lastVar + '.choices[0].message.content[:200])');
+
+  return lines.join('\n');
+}
+
+function renderApiPage() {
+  if (!apiPageState.traceId) apiPageState.traceId = generateProxyTraceId();
+  var tid = apiPageState.traceId;
+  var host = location.hostname || 'localhost';
+  var portSuffix = (location.port && location.port !== '443' && location.port !== '80') ? ':' + (host === 'localhost' ? '5000' : location.port) : '';
+  var proxyUrl = location.protocol + '//' + host + portSuffix + '/api/v1/proxy/chat/completions';
+
+  // Eagerly fetch topologies if not cached
+  if (!window._workflowTopologies) {
+    apiFetch('/api/workflow/topologies', { signal: AbortSignal.timeout(3000) })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        if (data) {
+          window._workflowTopologies = data;
+          renderApiPage(); // re-render once topologies arrive
+        }
+      })
+      .catch(function() {});
+  }
+
+  // Build snippet based on selected workflow type
+  var snippet;
+  var wt = apiPageState.workflowType;
+  var wfName = apiPageState.workflowName || '';
+  if (wt && window._workflowTopologies && window._workflowTopologies[wt]) {
+    snippet = generateTopologySnippet(tid, proxyUrl, wt, window._workflowTopologies[wt], wfName);
+  } else {
+    snippet = generateDefaultSnippet(tid, proxyUrl, wfName);
+  }
+
+  // Build workflow type dropdown options
+  var topoOptions = '<option value="">None (standalone trace)</option>';
+  if (window._workflowTopologies) {
+    Object.keys(window._workflowTopologies).forEach(function(key) {
+      if (key === 'custom') return;
+      var label = key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+      var agentCount = window._workflowTopologies[key].length;
+      var selected = apiPageState.workflowType === key ? ' selected' : '';
+      topoOptions += '<option value="' + key + '"' + selected + '>' + label + ' (' + agentCount + ' agents)</option>';
+    });
+  }
 
   var statusHtml = '';
   if (apiPageState.loading) {
     statusHtml = '<div style="color:var(--copper);font-size:.85rem;margin-top:8px">Loading trace...</div>';
   } else if (apiPageState.error) {
-    statusHtml = '<div style="color:var(--red);font-size:.85rem;margin-top:8px">' + apiPageState.error + '</div>';
+    statusHtml = '<div style="color:var(--red);font-size:.85rem;margin-top:8px">' + apiPageState.error.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
   } else if (apiPageState.success) {
     statusHtml = '<div style="color:var(--green);font-size:.85rem;margin-top:8px">Trace loaded! Redirecting to DAG Viewer...</div>';
   }
@@ -1952,11 +2167,33 @@ function renderApiPage() {
         <div style="font-size:.78rem;color:var(--text-secondary);margin-top:10px">Use this trace ID in your agent headers. All agents sharing the same trace ID will be grouped into one DAG.</div>
       </div>
 
-      <!-- Step 3: Code snippet -->
+      <!-- Step 3: Workflow Name -->
+      <div class="card" style="padding:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span style="background:var(--copper);color:var(--bg);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;flex-shrink:0">3</span>
+          <span style="font-weight:500;font-size:.95rem">Workflow Name</span>
+        </div>
+        <input id="api-workflow-name" type="text" value="${apiPageState.workflowName.replace(/"/g, '&quot;')}" placeholder="e.g. Q4 Finance Research v2" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:.85rem;color:var(--text)" onchange="apiPageState.workflowName=this.value" />
+        <div style="font-size:.78rem;color:var(--text-secondary);margin-top:10px">Give this workflow run a descriptive name. This is stored as the journey name and helps identify traces later.</div>
+      </div>
+
+      <!-- Step 4: Workflow Type -->
+      <div class="card" style="padding:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span style="background:var(--copper);color:var(--bg);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;flex-shrink:0">4</span>
+          <span style="font-weight:500;font-size:.95rem">Workflow Type</span>
+        </div>
+        <select id="api-workflow-select" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:.85rem;color:var(--text)" onchange="apiPageState.workflowType=this.value||null;renderApiPage()">
+          ${topoOptions}
+        </select>
+        <div style="font-size:.78rem;color:var(--text-secondary);margin-top:10px">Select a workflow topology to associate this trace with. This enables prompt optimization and workflow re-execution after cascade evaluation. Leave as "None" for standalone traces.</div>
+      </div>
+
+      <!-- Step 5: Code snippet -->
       <div class="card" style="padding:20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
           <div style="display:flex;align-items:center;gap:10px">
-            <span style="background:var(--copper);color:var(--bg);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;flex-shrink:0">3</span>
+            <span style="background:var(--copper);color:var(--bg);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;flex-shrink:0">5</span>
             <span style="font-weight:500;font-size:.95rem">Run Agents</span>
           </div>
           <button class="btn btn-ghost" style="padding:8px 14px;font-size:.8rem" onclick="navigator.clipboard.writeText(document.getElementById('api-snippet').textContent)">Copy Script</button>
@@ -1965,10 +2202,10 @@ function renderApiPage() {
         <div style="font-size:.78rem;color:var(--text-secondary);margin-top:10px">Install: <code style="font-size:.78rem">pip install openai</code>. Set your <code style="font-size:.78rem">OPENAI_API_KEY</code> environment variable, paste the script, and run it.</div>
       </div>
 
-      <!-- Step 4: Load trace -->
+      <!-- Step 6: Load trace -->
       <div class="card" style="padding:20px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-          <span style="background:var(--copper);color:var(--bg);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;flex-shrink:0">4</span>
+          <span style="background:var(--copper);color:var(--bg);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;flex-shrink:0">6</span>
           <span style="font-weight:500;font-size:.95rem">Load Trace</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -2048,6 +2285,42 @@ async function loadProxyTrace(traceId) {
       journey = convertV1TraceToJourney(traceData);
     }
 
+    // Determine workflow_type: backend response > user selection > null
+    var effectiveWorkflowType = null;
+    if (traceData.workflow_type && traceData.workflow_type !== 'proxy') {
+      effectiveWorkflowType = traceData.workflow_type;
+    } else if (apiPageState.workflowType) {
+      effectiveWorkflowType = apiPageState.workflowType;
+    }
+
+    // Inject workflow_type into each sample's metadata
+    if (effectiveWorkflowType && journey.samples) {
+      journey.samples.forEach(function(sample) {
+        if (!sample.metadata) sample.metadata = {};
+        sample.metadata.workflow_type = effectiveWorkflowType;
+      });
+    }
+
+    // PATCH backend to persist workflow_type and/or journey_name
+    var patchBody = {};
+    if (apiPageState.workflowType && (!traceData.workflow_type || traceData.workflow_type === 'proxy')) {
+      patchBody.workflow_type = apiPageState.workflowType;
+    }
+    if (apiPageState.workflowName && apiPageState.workflowName.trim()) {
+      patchBody.journey_name = apiPageState.workflowName.trim();
+    }
+    if (Object.keys(patchBody).length > 0) {
+      var patchBase = '';
+      if (location.port && location.port !== '5000') {
+        patchBase = location.protocol + '//' + location.hostname + ':5000';
+      }
+      apiFetch(patchBase + '/api/v1/traces/' + encodeURIComponent(traceId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patchBody)
+      }).catch(function() {}); // best-effort
+    }
+
     // Add/update in journeys array (dedup by trace_id)
     var idx = journeys.findIndex(function(j) { return j.trace_id === journey.trace_id; });
     if (idx >= 0) {
@@ -2063,8 +2336,7 @@ async function loadProxyTrace(traceId) {
 
     // Navigate to DAG Viewer after short delay
     setTimeout(function() {
-      navigateTo('dagviewer');
-      setTimeout(function() { renderDAGViewer(journey.trace_id); }, 100);
+      navigateTo('dagviewer', { traceId: journey.trace_id });
     }, 600);
   } catch (err) {
     apiPageState.loading = false;
@@ -2279,10 +2551,28 @@ function applyOptimizedPrompt() {
 
   // Store pending optimization so DAG viewer can show rerun button
   var summary = optimizerState.summary || {};
+  // Resolve workflow type: prefer journey metadata over library entry to avoid stale values
+  var resolvedWfType = '';
+  if (summary.trace_id) {
+    var wfJourney = journeys.find(function(j) { return j.trace_id === summary.trace_id; });
+    if (wfJourney) {
+      for (var wi = 0; wi < wfJourney.samples.length; wi++) {
+        if (wfJourney.samples[wi].metadata && wfJourney.samples[wi].metadata.workflow_type) {
+          resolvedWfType = wfJourney.samples[wi].metadata.workflow_type;
+          break;
+        }
+      }
+    }
+  }
+  if (!resolvedWfType) resolvedWfType = (libEntry ? libEntry.workflowType : '') || workflowState.lastWorkflowType || '';
+  if (!resolvedWfType) {
+    console.warn('[APPLY-OPT] WARNING: Could not resolve workflow type! libEntry.workflowType=' + (libEntry ? libEntry.workflowType : 'N/A') + ', lastWorkflowType=' + workflowState.lastWorkflowType);
+  }
+  console.log('[APPLY-OPT] pendingRerun: wfType=' + resolvedWfType + ', topoAgentName=' + (libEntry ? (libEntry.topoAgentName || libEntry.agentName) : '') + ', agentName=' + (libEntry ? libEntry.agentName : ''));
   window._pendingRerun = {
     agentName: libEntry ? libEntry.agentName : '',
     topoAgentName: libEntry ? (libEntry.topoAgentName || libEntry.agentName) : '',
-    workflowType: libEntry ? libEntry.workflowType : 'finance_research',
+    workflowType: resolvedWfType,
     prompt: opt,
     traceId: summary.trace_id || '',
     promptId: promptsPageState.activePromptId
@@ -2315,19 +2605,121 @@ async function rerunWithOptimizedPrompt() {
       '</div>';
   }
 
+  // Resolve workflow type — verify the agent actually exists in the resolved workflow
+  var wfType = pending.workflowType || workflowState.lastWorkflowType || '';
+  var resolvedName = pending.topoAgentName || pending.agentName || '';
+  var rerunSourceTrace = pending.traceId || currentTraceId || '';
+
+  // If wfType isn't in cached topologies but we have a source trace,
+  // skip validation — backend will reconstruct the topology from AgentExecution records
+  var rerunKnownTopologies = window._workflowTopologies || {};
+  var rerunIsKnown = wfType && rerunKnownTopologies[wfType];
+  if (!rerunIsKnown && rerunSourceTrace) {
+    console.log('[RERUN] Unknown topology "' + wfType + '": backend will reconstruct from source_trace_id=' + rerunSourceTrace);
+  } else {
+  // Validate: does the agent exist in wfType's topology? If not, search ALL topologies
+  var agentFoundInTopo = false;
+  if (resolvedName && window._workflowTopologies) {
+    var foundInType = '';
+    var foundName = '';
+    var typesToCheck = wfType ? [wfType] : [];
+    Object.keys(window._workflowTopologies).forEach(function(wt) {
+      if (wt !== wfType) typesToCheck.push(wt);
+    });
+    for (var ti = 0; ti < typesToCheck.length && !foundInType; ti++) {
+      var topoList = window._workflowTopologies[typesToCheck[ti]];
+      if (!topoList) continue;
+      var match = topoList.find(function(a) { return a.name === resolvedName; });
+      if (!match) {
+        var stripped = resolvedName.replace(/Agent$/, '');
+        match = topoList.find(function(a) { return a.name === stripped || a.name === stripped + 'Agent'; });
+      }
+      if (match) {
+        foundInType = typesToCheck[ti];
+        foundName = match.name;
+      }
+    }
+    if (foundInType) {
+      if (foundInType !== wfType) {
+        console.log('[RERUN] Correcting workflow type: ' + wfType + ' -> ' + foundInType + ' (agent ' + foundName + ' found there)');
+      }
+      wfType = foundInType;
+      resolvedName = foundName;
+      agentFoundInTopo = true;
+    }
+  }
+
+  // If agent not found in any topology, let user pick which workflow to run
+  if (!agentFoundInTopo && window._workflowTopologies) {
+    var wfOptions = Object.keys(window._workflowTopologies).filter(function(k) { return k !== 'custom'; });
+    if (wfOptions.length > 0) {
+    var pickerMsg = 'Agent "' + resolvedName + '" was not found in any workflow topology.\n\n' +
+      'Select which workflow to rerun with the optimized prompt:\n\n' +
+      wfOptions.map(function(w, i) {
+        var agents = window._workflowTopologies[w].map(function(a) { return a.name; }).join(', ');
+        return (i + 1) + '. ' + w + ' (' + agents + ')';
+      }).join('\n') + '\n\nEnter the number (1-' + wfOptions.length + '):';
+    var pick = window.prompt(pickerMsg);
+    if (!pick) return;
+    var pickIdx = parseInt(pick, 10) - 1;
+    if (pickIdx >= 0 && pickIdx < wfOptions.length) {
+      wfType = wfOptions[pickIdx];
+      // The optimized prompt will be applied as an override to the closest-named agent in the chosen workflow
+      resolvedName = pending.topoAgentName || pending.agentName || '';
+    } else {
+      alert('Invalid selection.');
+      return;
+    }
+    }
+  }
+
+  if (!wfType || wfType === 'custom') {
+    alert('Cannot determine workflow type. Please select a valid workflow.');
+    return;
+  }
+  } // end known-topology validation
+
+  // API workflows can't be re-executed through WorkflowEngine — they're external code
+  var isApiWorkflow = false;
+  if (window._workflowTopologies && window._workflowTopologies[wfType]) {
+    isApiWorkflow = window._workflowTopologies[wfType].some(function(a) { return a.source === 'api'; });
+  }
+  if (isApiWorkflow) {
+    var banner = document.getElementById('rerun-banner');
+    if (banner) {
+      banner.innerHTML =
+        '<div style="padding:14px;background:var(--surface-alt, #1a1a2e);border:1px solid var(--copper);border-radius:8px">' +
+          '<div style="font-weight:600;color:var(--copper);margin-bottom:6px">API Workflow — Re-execution Not Available</div>' +
+          '<div style="font-size:.85rem;color:var(--text-dim);line-height:1.5">' +
+            'The workflow <strong>' + wfType + '</strong> was captured via the API proxy and cannot be re-executed from this dashboard. ' +
+            'The optimized prompt for <strong>' + resolvedName + '</strong> has been saved to your Prompt Library.' +
+            '<br><br>To apply it, update the system prompt in your application code with the optimized version from the library.' +
+          '</div>' +
+        '</div>';
+    } else {
+      alert('The workflow "' + wfType + '" was captured via the API proxy and cannot be re-executed. The optimized prompt has been saved to your Prompt Library.');
+    }
+    console.log('[RERUN] Skipping re-execution for API workflow:', wfType);
+    return;
+  }
+
+  console.log('[RERUN] workflow_type=' + wfType + ', resolvedAgent=' + resolvedName + ', originalAgent=' + pending.topoAgentName);
   var overrides = {};
-  overrides[pending.topoAgentName] = pending.prompt;
+  overrides[resolvedName] = pending.prompt;
   var startTime = Date.now();
 
   try {
+    var reqBody = {
+      goal: goal,
+      workflow_type: wfType,
+      config: { prompt_overrides: overrides },
+      source_trace_id: rerunSourceTrace
+    };
+    console.warn('[RERUN-DEBUG] Sending to backend:', JSON.stringify(reqBody).slice(0, 300));
     var response = await apiFetch('/api/workflow/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        goal: goal,
-        workflow_type: pending.workflowType || 'finance_research',
-        config: { prompt_overrides: overrides }
-      })
+      body: JSON.stringify(reqBody)
     });
 
     if (!response.ok) {
@@ -2381,7 +2773,6 @@ async function rerunWithOptimizedPrompt() {
     if (finalJourney.samples) {
       if (typeof ensureAgentIds === 'function') ensureAgentIds(finalJourney);
       journeys.push(finalJourney);
-      DATA.journeys.push(finalJourney);
       dataLoaded = true;
     }
 
@@ -2832,6 +3223,7 @@ function loadPromptLibrary() {
       if (typeof p.favorite !== 'boolean') p.favorite = false;
       if (p.model === undefined) p.model = null;
       if (!p.source) p.source = 'excel';
+      if (!p.sourceTraceId) p.sourceTraceId = '';
     });
     return lib;
   } catch (e) { return []; }
@@ -2841,13 +3233,36 @@ function savePromptLibrary(lib) {
   localStorage.setItem('arcana-prompt-library', JSON.stringify(lib));
 }
 
-function addPrompt(name, agentName, template, notes, labels, favorite, model, source, workflowType, cascadeComments, topoAgentName) {
+function persistPromptOverride(traceId, agentName, optimizedPrompt, originalPrompt, cascadeFeedback) {
+  if (!traceId || !agentName || !optimizedPrompt) return;
+  var backendBase = '';
+  if (location.port && location.port !== '5000') {
+    backendBase = location.protocol + '//' + location.hostname + ':5000';
+  }
+  apiFetch(backendBase + '/api/v1/traces/' + encodeURIComponent(traceId) + '/prompts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      agent_name: agentName,
+      optimized_prompt: optimizedPrompt,
+      original_prompt: originalPrompt || '',
+      cascade_feedback: cascadeFeedback || ''
+    })
+  }).then(function() {
+    console.log('[persist-override] Saved override for ' + agentName + ' on trace ' + traceId);
+  }).catch(function() {
+    // Best-effort — don't block UI
+  });
+}
+
+function addPrompt(name, agentName, template, notes, labels, favorite, model, source, workflowType, cascadeComments, topoAgentName, sourceTraceId) {
   var lib = loadPromptLibrary();
   var now = new Date().toISOString();
   lib.push({
     id: 'p-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
     name: name, agentName: agentName, template: template, notes: notes || '',
     topoAgentName: topoAgentName || agentName,
+    sourceTraceId: sourceTraceId || '',
     labels: Array.isArray(labels) ? labels : [],
     favorite: !!favorite,
     model: model || null,
@@ -3379,7 +3794,9 @@ function renderPromptDetail(promptId) {
         '<div style="font-family:var(--font-display);font-size:1.2rem;color:var(--green)">Optimized Prompt' + (_isWorkflowRun && st.summary.optimized_agent ? ' <span style="font-size:.75rem;color:var(--text-secondary);font-weight:400">for ' + st.summary.optimized_agent + '</span>' : '') + '</div>' +
         '<div style="display:flex;gap:8px">' +
           '<button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="var _t=(optimizerState.summary&&optimizerState.summary.workflow_run&&optimizerState.summary.optimized_prompt)?optimizerState.summary.optimized_prompt:optimizerState.results[optimizerState.results.length-1].template;navigator.clipboard.writeText(_t);this.textContent=\'Copied!\';setTimeout(function(){this.textContent=\'Copy\'},1500)">Copy</button>' +
-          (_isWorkflowRun ? '<button class="btn btn-primary" style="padding:6px 12px;font-size:.78rem" onclick="applyOptimizedPrompt()">Apply to Prompt</button>' : '<button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="saveCurrentPromptToLibrary()">Save to Library</button>') +
+          (_isWorkflowRun ? '<button class="btn btn-primary" style="padding:6px 12px;font-size:.78rem" onclick="applyOptimizedPrompt()">Apply to Prompt</button>' +
+            (st.summary && st.summary.trace_id ? '<button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="navigateTo(\'dagviewer\', { traceId: \'' + st.summary.trace_id + '\' })">View in DAG</button>' : '') :
+          '<button class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem" onclick="saveCurrentPromptToLibrary()">Save to Library</button>') +
         '</div>' +
       '</div>' +
       '<div style="font-family:\'DM Sans\',monospace;font-size:.88rem;color:var(--text);line-height:1.7;padding:16px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);white-space:pre-wrap">' + _displayTemplate + '</div>' +
@@ -3607,21 +4024,20 @@ function selectNewPromptSource(source) {
   if (!configEl) return;
 
   if (source === 'agent') {
-    // Workflow → Agent cascade: first fetch topologies from backend, fallback to hardcoded list
+    // Workflow → Agent cascade: build options from cached API topologies
+    var wfOpts = '<option value="">Choose a workflow...</option>';
+    if (window._workflowTopologies) {
+      Object.keys(window._workflowTopologies).forEach(function(wt) {
+        var agents = window._workflowTopologies[wt];
+        var label = wt.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); }) + ' (' + agents.length + ' agents)';
+        wfOpts += '<option value="' + wt + '">' + label + '</option>';
+      });
+    }
     configEl.innerHTML = '<div style="margin-bottom:16px"><label class="agent-field-label" style="display:block;margin-bottom:6px">Select Workflow</label>' +
       '<select id="newPromptWorkflow" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)" onchange="onNewPromptWorkflowChange()">' +
-        '<option value="">Choose a workflow...</option>' +
-        '<option value="trip_booking">Trip Booking (6 agents)</option>' +
-        '<option value="finance_research">Finance Research (6 agents)</option>' +
-        '<option value="refund_request">Refund Request (3 agents)</option>' +
-        '<option value="quote_generation">Quote Generation (4 agents)</option>' +
+        wfOpts +
       '</select></div>' +
       '<div id="newPromptAgentWrap"></div>';
-    // Try to fetch live topologies for agent names
-    apiFetch('/api/workflow/topologies', { signal: AbortSignal.timeout(3000) })
-      .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(data) { if (data) window._workflowTopologies = data; })
-      .catch(function() {});
   } else if (source === 'excel') {
     configEl.innerHTML = '<div style="margin-bottom:16px"><label class="agent-field-label" style="display:block;margin-bottom:6px">Upload Dataset</label>' +
       '<div class="upload-zone" style="padding:16px" onclick="document.getElementById(\'newPromptFile\').click()">' +
@@ -3805,7 +4221,67 @@ async function runOptimizer() {
   if (isWorkflowSource && activePrompt && !uploadedFile) {
     var wfAgent = activePrompt.agentName || '';
     var wfAgentTopo = activePrompt.topoAgentName || wfAgent;  // topology name for prompt overrides
-    var wfType = activePrompt.workflowType || 'finance_research';
+    var wfType = activePrompt.workflowType || workflowState.lastWorkflowType || '';
+    var sourceTrace = activePrompt.sourceTraceId || currentTraceId || '';
+
+    // If wfType isn't in the cached topologies and we have a source trace,
+    // skip frontend validation — the backend will reconstruct the topology from the trace's AgentExecution records
+    var knownTopologies = window._workflowTopologies || {};
+    var isKnownTopology = wfType && knownTopologies[wfType];
+    if (!isKnownTopology && sourceTrace) {
+      console.log('[CASCADE-OPT] Unknown topology "' + wfType + '": backend will reconstruct from source_trace_id=' + sourceTrace);
+    } else {
+    // Validate: does the agent actually exist in wfType's topology? If not, search ALL topologies
+    if (wfAgentTopo && window._workflowTopologies) {
+      var foundType = '';
+      var foundName = '';
+      var toCheck = wfType ? [wfType] : [];
+      Object.keys(window._workflowTopologies).forEach(function(wt) {
+        if (wt !== wfType) toCheck.push(wt);
+      });
+      for (var ci = 0; ci < toCheck.length && !foundType; ci++) {
+        var tList = window._workflowTopologies[toCheck[ci]];
+        if (!tList) continue;
+        var m = tList.find(function(a) { return a.name === wfAgentTopo; });
+        if (!m) {
+          var s = wfAgentTopo.replace(/Agent$/, '');
+          m = tList.find(function(a) { return a.name === s || a.name === s + 'Agent'; });
+        }
+        if (m) { foundType = toCheck[ci]; foundName = m.name; }
+      }
+      if (foundType) {
+        if (foundType !== wfType) console.log('[CASCADE-OPT] Correcting workflow type: ' + wfType + ' -> ' + foundType);
+        wfType = foundType;
+        wfAgentTopo = foundName;
+      }
+    }
+    // If agent not found in any topology, let user pick which workflow to run
+    if (!wfType || wfType === 'custom') {
+      var wfOpts = Object.keys(window._workflowTopologies || {}).filter(function(k) { return k !== 'custom'; });
+      if (wfOpts.length > 0) {
+        var msg = 'Agent "' + wfAgentTopo + '" was not found in any workflow topology.\n\n' +
+          'Select which workflow to run with the optimized prompt:\n\n' +
+          wfOpts.map(function(w, i) {
+            var agents = (window._workflowTopologies[w] || []).map(function(a) { return a.name; }).join(', ');
+            return (i + 1) + '. ' + w + ' (' + agents + ')';
+          }).join('\n') + '\n\nEnter the number (1-' + wfOpts.length + '):';
+        var userPick = window.prompt(msg);
+        if (!userPick) { optimizerState.running = false; renderOptimizer(); return; }
+        var idx = parseInt(userPick, 10) - 1;
+        if (idx >= 0 && idx < wfOpts.length) {
+          wfType = wfOpts[idx];
+        } else {
+          alert('Invalid selection.'); optimizerState.running = false; renderOptimizer(); return;
+        }
+      }
+    }
+    console.log('[CASCADE-OPT] Workflow type: ' + wfType + ', agent: ' + wfAgentTopo);
+
+    if (!wfType || wfType === 'custom') {
+      alert('No valid workflow type selected. Cannot run optimizer in workflow mode.');
+      optimizerState.running = false; renderOptimizer(); return;
+    }
+    } // end non-proxy validation
 
     // Use a real goal: from pipeline state, or ask the user
     var wfGoal = pipelineState.userGoal || '';
@@ -3854,6 +4330,7 @@ async function runOptimizer() {
 
       var overrides = {};
       if (wfAgentTopo) overrides[wfAgentTopo] = improvedTemplate;
+      console.warn('[CASCADE-OPT-DEBUG] Sending workflow_type=' + wfType + ', agent=' + wfAgentTopo + ', overrides=' + Object.keys(overrides).join(','));
 
       var wfResp = await apiFetch('/api/workflow/stream', {
         method: 'POST',
@@ -3861,7 +4338,8 @@ async function runOptimizer() {
         body: JSON.stringify({
           workflow_type: wfType,
           goal: wfGoal,
-          config: { prompt_overrides: overrides }
+          config: { prompt_overrides: overrides },
+          source_trace_id: sourceTrace
         })
       });
 
@@ -3918,9 +4396,18 @@ async function runOptimizer() {
       if (finalJourney.samples) {
         if (typeof ensureAgentIds === 'function') ensureAgentIds(finalJourney);
         journeys.push(finalJourney);
-        DATA.journeys.push(finalJourney);
         dataLoaded = true;
       }
+
+      // Run cascade evaluation on the new trace
+      pipelineState.userGoal = wfGoal;
+      pipelineState.evaluationMode = 'cascade';
+      var elStatus = document.getElementById('optimizer-elapsed');
+      if (elStatus) {
+        var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+        elStatus.textContent = 'Elapsed: ' + elapsed + 's — Workflow complete! Running cascade evaluation...';
+      }
+      await loadPipelineFromBackend(newTraceId);
 
       var wfSamples = finalJourney.samples || [];
       optimizerState.results = wfSamples.map(function(s, idx) {
@@ -3943,6 +4430,12 @@ async function runOptimizer() {
         libEntry.optimizedTemplate = improvedTemplate;   // store optimized separately
         savePromptLibrary(pLib);
       }
+
+      // Persist the optimized prompt override to backend (best-effort)
+      if (sourceTrace) {
+        persistPromptOverride(sourceTrace, wfAgentTopo || wfAgent, improvedTemplate, template, cascadeComments);
+      }
+
       // Keep promptTemplate as the ORIGINAL so "Original Prompt" section shows the before state
       optimizerState.summary = {
         total_rows: wfSamples.length,
@@ -3965,6 +4458,7 @@ async function runOptimizer() {
     clearInterval(timerInterval);
     console.log('[CASCADE-OPT] About to render. hasResults:', optimizerState.results.length, 'view:', promptsPageState.view, 'error:', optimizerState.error);
     renderOptimizer();
+
     return;
   }
 
@@ -4214,6 +4708,24 @@ let workflowState = {
 };
 
 function showWorkflowDialog() {
+  // Get current trace context
+  var currentGoal = pipelineState.userGoal || '';
+  var sourceTraceId = '';
+  var traceAgentCount = 0;
+  var dagSel = document.getElementById('dagSelect');
+  if (dagSel) {
+    sourceTraceId = dagSel.value || '';
+    var curJourney = journeys.find(function(j) { return j.trace_id === dagSel.value; });
+    if (curJourney && curJourney.samples) {
+      traceAgentCount = curJourney.samples.length;
+      // Try to get goal from root agent input if not set
+      if (!currentGoal) {
+        var root = curJourney.samples.find(function(s) { return !s.parent_id && !s.parent_ids; });
+        if (root) currentGoal = root.input || '';
+      }
+    }
+  }
+
   // Create modal overlay
   const overlay = document.createElement('div');
   overlay.id = 'workflow-overlay';
@@ -4222,30 +4734,25 @@ function showWorkflowDialog() {
   const dialog = document.createElement('div');
   dialog.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);width:600px;max-width:90vw;max-height:80vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5)';
 
+  var traceNote = sourceTraceId
+    ? '<div style="padding:10px 14px;background:rgba(200,149,108,.06);border:1px solid rgba(200,149,108,.15);border-radius:var(--radius-md);margin-bottom:20px;font-size:.8rem;color:var(--text-secondary)">Re-executing topology from trace <span style="color:var(--copper);font-family:monospace">' + sourceTraceId.substring(0,16) + '...</span> (' + traceAgentCount + ' agents). Cascade evaluation runs automatically after completion.</div>'
+    : '';
+
   dialog.innerHTML = `
     <div style="padding:24px;border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div style="font-family:var(--font-display);font-size:1.4rem;color:var(--copper)">Run Multi-Agent Workflow</div>
         <button onclick="closeWorkflowDialog()" style="background:none;border:none;color:var(--text-dim);font-size:1.5rem;cursor:pointer;padding:0;width:30px;height:30px">&times;</button>
       </div>
-      <div style="font-size:.8rem;color:var(--text-secondary);margin-top:4px">Execute a multi-agent system with your custom goal</div>
+      <div style="font-size:.8rem;color:var(--text-secondary);margin-top:4px">Re-run the current trace's agent topology with a new goal</div>
     </div>
 
     <div style="padding:24px">
-      <div style="margin-bottom:20px">
-        <label class="agent-field-label" style="display:block;margin-bottom:6px">Workflow Type</label>
-        <select id="workflowType" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-size:.85rem">
-          <option value="trip_booking">Trip Booking (6 agents, diamond pattern)</option>
-          <option value="finance_research">Finance Research (6 agents, fan-out + diamond)</option>
-          <option value="refund_request">Refund Request (3 agents, fan-out)</option>
-          <option value="quote_generation">Quote Generation (4 agents, diamond)</option>
-          <option value="custom">Custom Workflow</option>
-        </select>
-      </div>
+      ${traceNote}
 
       <div style="margin-bottom:20px">
         <label class="agent-field-label" style="display:block;margin-bottom:6px">User Goal</label>
-        <textarea id="workflowGoal" rows="4" placeholder="E.g., Book a flight from London to Tokyo for 2 adults, departing March 15th" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-size:.85rem;resize:vertical"></textarea>
+        <textarea id="workflowGoal" rows="4" placeholder="E.g., Book a flight from London to Tokyo for 2 adults, departing March 15th" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text);font-size:.85rem;resize:vertical">${currentGoal}</textarea>
       </div>
 
       <div style="margin-bottom:20px">
@@ -4291,12 +4798,29 @@ window.closeWorkflowDialog = closeWorkflowDialog;
 
 async function executeWorkflow() {
   const goal = document.getElementById('workflowGoal')?.value?.trim();
-  const workflowType = document.getElementById('workflowType')?.value;
   const configText = document.getElementById('workflowConfig')?.value?.trim();
 
   if (!goal) {
     alert('Please enter a user goal');
     return;
+  }
+
+  // Get source trace ID from currently selected trace
+  const dagSel = document.getElementById('dagSelect');
+  const sourceTraceId = dagSel ? dagSel.value : '';
+
+  // Detect workflow type from the source trace's metadata
+  let workflowType = 'proxy';
+  if (sourceTraceId) {
+    const srcJourney = journeys.find(function(j) { return j.trace_id === sourceTraceId; });
+    if (srcJourney && srcJourney.samples) {
+      for (let i = 0; i < srcJourney.samples.length; i++) {
+        if (srcJourney.samples[i].metadata && srcJourney.samples[i].metadata.workflow_type) {
+          workflowType = srcJourney.samples[i].metadata.workflow_type;
+          break;
+        }
+      }
+    }
   }
 
   let config = {};
@@ -4325,14 +4849,17 @@ async function executeWorkflow() {
   try {
     statusText.innerHTML = 'Connecting to backend...';
 
+    const body = {
+      goal: goal,
+      workflow_type: workflowType,
+      config: config
+    };
+    if (sourceTraceId) body.source_trace_id = sourceTraceId;
+
     const response = await apiFetch('/api/workflow/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        goal: goal,
-        workflow_type: workflowType,
-        config: config
-      })
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -4392,11 +4919,10 @@ async function executeWorkflow() {
       throw new Error('Stream ended without completion event');
     }
 
-    // Add the new journey to the app data
+    // Add the new journey to the app data (journeys === DATA.journeys, single push)
     if (finalJourney.samples) {
       ensureAgentIds(finalJourney);
       journeys.push(finalJourney);
-      DATA.journeys.push(finalJourney);
       dataLoaded = true;
     }
 
@@ -4422,10 +4948,7 @@ async function executeWorkflow() {
     // Navigate to the new trace in DAG viewer
     setTimeout(() => {
       closeWorkflowDialog();
-      navigateTo('dagviewer');
-      setTimeout(() => {
-        renderDAGViewer(traceId);
-      }, 300);
+      navigateTo('dagviewer', { traceId: traceId });
     }, 1500);
 
   } catch (error) {
@@ -4444,29 +4967,16 @@ window.executeWorkflow = executeWorkflow;
 updateApiKeyStatus();
 // Show API key modal on first visit
 if (!globalApiKey) { setTimeout(showApiKeyModal, 300); }
-// Load trace data from API (DB-backed), fall back to static data.json
+// Load trace data from API (DB-backed) — only user-generated traces
 apiFetch('/api/traces').then(r => r.ok ? r.json() : null).then(json => {
   if (json && json.journeys && json.journeys.length > 0) {
     const data = normalizeUploadedJSON(json);
     if (data) { loadData(data); navigateTo('dagviewer'); return; }
   }
-  // Fallback to static data.json for local dev without backend
-  return fetch('data.json').then(r => r.ok ? r.json() : null).then(fallback => {
-    if (fallback) {
-      const data = normalizeUploadedJSON(fallback);
-      if (data) { loadData(data); navigateTo('dagviewer'); }
-    }
-  });
+  renderOverview();
 }).catch(() => {
-  // Backend unavailable — try static file
-  fetch('data.json').then(r => r.ok ? r.json() : null).then(json => {
-    if (json) {
-      const data = normalizeUploadedJSON(json);
-      if (data) { loadData(data); navigateTo('dagviewer'); }
-    }
-  }).catch(() => {});
+  renderOverview();
 });
-renderOverview();
 </script>
 <!-- API Key Modal -->
 <div id="apikey-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center">

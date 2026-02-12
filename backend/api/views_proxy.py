@@ -15,6 +15,7 @@ Custom headers (consumed by proxy, not forwarded):
     X-Agent-Name     — Optional. Human-readable agent name (default: model name).
     X-Parent-Agent-Id — Optional. Parent agent for DAG edges (default: null/root).
     X-Journey-Name   — Optional. Journey display name (default: "Trace {trace_id}").
+    X-Workflow-Type  — Optional. Workflow topology key (default: "proxy").
 """
 from __future__ import annotations
 
@@ -68,8 +69,10 @@ def chat_completions(request):
         )
 
     agent_name = request.headers.get("X-Agent-Name", "")
-    parent_agent_id = request.headers.get("X-Parent-Agent-Id", "") or None
+    custom_agent_id = request.headers.get("X-Agent-Id", "") or None
+    parent_agent_id = request.headers.get("X-Parent-Agent-Id", "") or request.headers.get("X-Parent-Id", "") or None
     journey_name = request.headers.get("X-Journey-Name", "") or f"Trace {trace_id}"
+    workflow_type = request.headers.get("X-Workflow-Type", "") or "proxy"
 
     # --- Parse request body ---
     try:
@@ -88,16 +91,16 @@ def chat_completions(request):
     is_streaming = body.get("stream", False)
 
     if is_streaming:
-        return _handle_streaming(body, auth_header, trace_id, agent_name, parent_agent_id, journey_name, input_text)
+        return _handle_streaming(body, auth_header, trace_id, agent_name, parent_agent_id, journey_name, input_text, workflow_type, custom_agent_id)
     else:
-        return _handle_non_streaming(body, auth_header, trace_id, agent_name, parent_agent_id, journey_name, input_text)
+        return _handle_non_streaming(body, auth_header, trace_id, agent_name, parent_agent_id, journey_name, input_text, workflow_type, custom_agent_id)
 
 
 # ---------------------------------------------------------------------------
 # Non-streaming path
 # ---------------------------------------------------------------------------
 
-def _handle_non_streaming(body, auth_header, trace_id, agent_name, parent_agent_id, journey_name, input_text):
+def _handle_non_streaming(body, auth_header, trace_id, agent_name, parent_agent_id, journey_name, input_text, workflow_type, custom_agent_id=None):
     """Forward request to OpenAI, capture telemetry, store trace, return response unchanged."""
     headers = {
         "Authorization": auth_header,
@@ -149,6 +152,8 @@ def _handle_non_streaming(body, auth_header, trace_id, agent_name, parent_agent_
         ttft_s=latency_s,  # For non-streaming, TTFT ≈ total latency
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
+        workflow_type=workflow_type,
+        custom_agent_id=custom_agent_id,
     )
 
     # Return OpenAI response unchanged
@@ -163,7 +168,7 @@ def _handle_non_streaming(body, auth_header, trace_id, agent_name, parent_agent_
 # Streaming path
 # ---------------------------------------------------------------------------
 
-def _handle_streaming(body, auth_header, trace_id, agent_name, parent_agent_id, journey_name, input_text):
+def _handle_streaming(body, auth_header, trace_id, agent_name, parent_agent_id, journey_name, input_text, workflow_type, custom_agent_id=None):
     """Stream chunks from OpenAI through to client, accumulate output, persist after stream ends."""
     headers = {
         "Authorization": auth_header,
@@ -265,6 +270,8 @@ def _handle_streaming(body, auth_header, trace_id, agent_name, parent_agent_id, 
                     ttft_s=ttft_s,
                     prompt_tokens=state["prompt_tokens"],
                     completion_tokens=state["completion_tokens"],
+                    workflow_type=workflow_type,
+                    custom_agent_id=custom_agent_id,
                 )
             except Exception:
                 logger.warning("Failed to persist streaming proxy call", exc_info=True)
@@ -310,6 +317,8 @@ def _persist_proxy_call(
     ttft_s: float,
     prompt_tokens: int,
     completion_tokens: int,
+    workflow_type: str = "proxy",
+    custom_agent_id: str | None = None,
 ) -> None:
     """Persist a proxy call as an agent execution within a trace.
 
@@ -321,7 +330,7 @@ def _persist_proxy_call(
             trace_id=trace_id,
             defaults={
                 "journey_name": journey_name,
-                "workflow_type": "proxy",
+                "workflow_type": workflow_type,
                 "status": "active",
                 "raw_journey": {"trace_id": trace_id, "journey_name": journey_name, "samples": []},
             },
@@ -335,9 +344,16 @@ def _persist_proxy_call(
             if journey_name != f"Trace {trace_id}" and trace_obj.journey_name != journey_name:
                 trace_obj.journey_name = journey_name
 
-            # Generate agent_id based on existing sample count (safe under lock)
-            existing_count = trace_obj.agents.count()
-            agent_id = f"{trace_id}-call-{existing_count + 1}"
+            # Update workflow_type if explicitly set (not the default "proxy")
+            if workflow_type != "proxy" and trace_obj.workflow_type != workflow_type:
+                trace_obj.workflow_type = workflow_type
+
+            # Use custom agent_id if provided, otherwise auto-generate
+            if custom_agent_id:
+                agent_id = custom_agent_id
+            else:
+                existing_count = trace_obj.agents.count()
+                agent_id = f"{trace_id}-call-{existing_count + 1}"
 
             # Build sample dict for raw_journey
             sample = {
@@ -355,13 +371,14 @@ def _persist_proxy_call(
                         "completion_tokens": completion_tokens,
                     },
                 },
+                "metadata": {"workflow_type": workflow_type},
             }
 
             # Append to raw_journey samples (safe under lock)
             raw = trace_obj.raw_journey or {"trace_id": trace_id, "journey_name": journey_name, "samples": []}
             raw.setdefault("samples", []).append(sample)
             trace_obj.raw_journey = raw
-            trace_obj.save(update_fields=["raw_journey", "journey_name"])
+            trace_obj.save(update_fields=["raw_journey", "journey_name", "workflow_type"])
 
             # Create AgentExecution row
             AgentExecution.objects.create(

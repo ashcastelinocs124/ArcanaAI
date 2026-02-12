@@ -41,11 +41,97 @@ from semantic_pipeline import (
     TaskProgressMonitor,
     extract_agent_logs,
 )
-from workflow_engine import WorkflowEngine
+from workflow_engine import WORKFLOW_TOPOLOGIES, WorkflowEngine
 
-from .models import AgentExecution, ExecutionTrace, OptimizationRun, RoutingDecision
+from .models import AgentExecution, ExecutionTrace, OptimizationRun, PromptOverride, RoutingDecision
 
 ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'csv'}
+
+
+def _load_stored_overrides(source_trace_id: str) -> dict[str, str]:
+    """Load active prompt overrides from DB for a given trace.
+
+    Returns dict of {agent_name: optimized_prompt}.
+    """
+    if not source_trace_id:
+        return {}
+    try:
+        overrides = PromptOverride.objects.filter(
+            trace__trace_id=source_trace_id,
+            is_active=True,
+        )
+        result = {o.agent_name: o.optimized_prompt for o in overrides}
+        if result:
+            print(f"[overrides] Loaded {len(result)} stored overrides from trace {source_trace_id}: {list(result.keys())}")
+        return result
+    except Exception:
+        return {}
+
+
+def _reconstruct_trace_topology(source_trace_id: str) -> list[dict] | None:
+    """Reconstruct a workflow topology from a stored trace's AgentExecution records.
+
+    Used when rerunning proxy traces that don't exist in WORKFLOW_TOPOLOGIES.
+    Returns a topology list compatible with WorkflowEngine, or None if not found.
+    """
+    if not source_trace_id:
+        return None
+    try:
+        agents_qs = (
+            AgentExecution.objects
+            .filter(trace__trace_id=source_trace_id)
+            .order_by('id')
+            .values('agent_id', 'agent_name', 'parent_id', 'model')
+        )
+        rows = list(agents_qs)
+        if not rows:
+            return None
+
+        # Build agent_id -> index and deduplicate by name (preserve order)
+        seen_names: list[str] = []
+        agent_id_to_name: dict[str, str] = {}
+        name_to_model: dict[str, str] = {}
+        name_to_parent_ids: dict[str, list[str]] = {}
+
+        for row in rows:
+            name = row['agent_name']
+            if not name:
+                continue
+            if row['agent_id']:
+                agent_id_to_name[row['agent_id']] = name
+            if name not in name_to_model:
+                seen_names.append(name)
+                name_to_model[name] = row['model'] or 'gpt-4o'
+                name_to_parent_ids[name] = []
+            if row['parent_id']:
+                name_to_parent_ids[name].append(row['parent_id'])
+
+        if not seen_names:
+            return None
+
+        # Resolve parent_id strings to indices
+        name_to_idx = {n: i for i, n in enumerate(seen_names)}
+        topology = []
+        for name in seen_names:
+            parent_indices = []
+            for pid in name_to_parent_ids[name]:
+                parent_name = agent_id_to_name.get(pid, '')
+                if parent_name in name_to_idx:
+                    parent_indices.append(name_to_idx[parent_name])
+            topology.append({
+                'name': name,
+                'role': name,
+                'model': name_to_model[name],
+                'system_prompt': f'You are {name}. Complete your assigned task accurately and thoroughly.',
+                'parent_indices': sorted(set(parent_indices)),
+                'tools': [],
+            })
+
+        print(f"[reconstruct] Built topology from trace {source_trace_id}: {[(a['name'], a['parent_indices']) for a in topology]}")
+        return topology
+    except Exception as e:
+        print(f"[reconstruct] Failed for trace {source_trace_id}: {e}")
+        return None
 
 
 def _persist_workflow_result(trace_id, journey_name, workflow_type, goal, samples, raw_journey=None):
@@ -62,11 +148,16 @@ def _persist_workflow_result(trace_id, journey_name, workflow_type, goal, sample
             completed_at=timezone.now(),
         )
         for sample in samples:
+            # parent_id (singular) for single-parent; fall back to first of parent_ids for fan-in
+            pid = sample.get('parent_id', '')
+            if not pid:
+                pids = sample.get('parent_ids', [])
+                pid = pids[0] if pids else ''
             AgentExecution.objects.create(
                 trace=trace_obj,
                 agent_id=sample.get('agent_id', ''),
                 agent_name=sample.get('agent_name', ''),
-                parent_id=sample.get('parent_id', ''),
+                parent_id=pid,
                 input_text=sample.get('input', ''),
                 output_text=sample.get('output', ''),
                 latency_ms=sample.get('telemetry', {}).get('latency', 0) * 1000
@@ -117,8 +208,13 @@ def health_check(request):
 
 @require_http_methods(["GET"])
 def list_traces(request):
-    """Return all execution traces in the frontend's journey-grouped format."""
-    traces = ExecutionTrace.objects.exclude(raw_journey={}).values_list('raw_journey', flat=True)
+    """Return only API-generated execution traces (proxy + workflow), not seeded/uploaded."""
+    traces = (
+        ExecutionTrace.objects
+        .exclude(raw_journey={})
+        .exclude(workflow_type__in=['imported', 'uploaded'])
+        .values_list('raw_journey', flat=True)
+    )
     journeys = list(traces)
     return JsonResponse({
         'description': 'ArcanaAI execution traces',
@@ -485,7 +581,21 @@ def run_workflow(request):
         workflow_type = data.get('workflow_type', 'custom')
         config = data.get('config', {})
 
-        engine = WorkflowEngine(goal=goal, workflow_type=workflow_type, config=config)
+        # Merge stored overrides from source trace (explicit overrides take precedence)
+        source_trace_id = data.get('source_trace_id', '')
+        if source_trace_id:
+            stored = _load_stored_overrides(source_trace_id)
+            if stored:
+                explicit = config.get('prompt_overrides', {})
+                merged = {**stored, **explicit}  # explicit wins
+                config['prompt_overrides'] = merged
+
+        # Reconstruct topology from trace if workflow_type isn't predefined
+        trace_topology = None
+        if workflow_type not in WORKFLOW_TOPOLOGIES and source_trace_id:
+            trace_topology = _reconstruct_trace_topology(source_trace_id)
+
+        engine = WorkflowEngine(goal=goal, workflow_type=workflow_type, config=config, topology=trace_topology)
         result = engine.execute()
 
         # Best-effort DB persistence
@@ -510,12 +620,99 @@ def run_workflow(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+def _reconstruct_api_topologies() -> dict[str, list[dict]]:
+    """Reconstruct workflow topologies from API proxy traces.
+
+    Queries ExecutionTrace for workflow_types not in WORKFLOW_TOPOLOGIES
+    (and not generic types like proxy/imported/uploaded/custom), then
+    rebuilds agent lists from AgentExecution rows.
+    """
+    from collections import Counter
+
+    skip_types = set(WORKFLOW_TOPOLOGIES.keys()) | {'proxy', 'imported', 'uploaded', 'custom', ''}
+
+    api_types = (
+        ExecutionTrace.objects
+        .exclude(workflow_type__in=skip_types)
+        .values_list('workflow_type', flat=True)
+        .distinct()
+    )
+
+    result: dict[str, list[dict]] = {}
+    for wf_type in api_types:
+        # Single query: get all fields needed for dedup + parent resolution
+        agents_qs = (
+            AgentExecution.objects
+            .filter(trace__workflow_type=wf_type)
+            .values('agent_id', 'agent_name', 'parent_id', 'model')
+        )
+
+        # Deduplicate by agent_name, pick most common model
+        agent_models: dict[str, Counter] = {}
+        agent_parents: dict[str, set] = {}
+        agent_id_to_name: dict[str, str] = {}
+        seen_order: list[str] = []
+        for row in agents_qs:
+            name = row['agent_name']
+            if not name:
+                continue
+            if name not in agent_models:
+                agent_models[name] = Counter()
+                agent_parents[name] = set()
+                seen_order.append(name)
+            agent_models[name][row['model'] or 'unknown'] += 1
+            if row['parent_id']:
+                agent_parents[name].add(row['parent_id'])
+            if row['agent_id']:
+                agent_id_to_name[row['agent_id']] = name
+
+        if not seen_order:
+            continue
+
+        # Build agent list preserving discovery order
+        name_to_idx = {name: i for i, name in enumerate(seen_order)}
+
+        agents_list = []
+        for name in seen_order:
+            model = agent_models[name].most_common(1)[0][0]
+            # Resolve parent indices
+            parent_indices = []
+            for pid in agent_parents[name]:
+                parent_name = agent_id_to_name.get(pid, '')
+                if parent_name in name_to_idx:
+                    parent_indices.append(name_to_idx[parent_name])
+            agents_list.append({
+                'name': name,
+                'role': name,
+                'model': model,
+                'system_prompt': '',
+                'parent_indices': sorted(parent_indices),
+                'source': 'api',
+            })
+
+        result[wf_type] = agents_list
+
+    return result
+
+
 @require_http_methods(["GET"])
 def get_workflow_topologies(request):
-    """Return available workflow types and their agent names/roles."""
-    from workflow_engine import WORKFLOW_TOPOLOGIES
+    """Return available workflow types and their agent names/roles.
 
+    Merges hardcoded WORKFLOW_TOPOLOGIES with topologies reconstructed
+    from API proxy traces. Hardcoded takes precedence on name collisions.
+    """
     result = {}
+
+    # Reconstructed API topologies first (lower precedence)
+    try:
+        api_topos = _reconstruct_api_topologies()
+        for wf_type, agents in api_topos.items():
+            result[wf_type] = agents  # already in the right format
+    except Exception as e:
+        print(f"[topologies] Failed to reconstruct API topologies: {e}")
+
+    # Hardcoded topologies override on collision
     for wf_type, agents in WORKFLOW_TOPOLOGIES.items():
         result[wf_type] = [
             {'name': a['name'], 'role': a['role'], 'model': a['model'], 'system_prompt': a['system_prompt']}
@@ -536,10 +733,54 @@ def stream_workflow(request):
     workflow_type = data.get('workflow_type', 'custom')
     config = data.get('config', {})
 
-    engine = WorkflowEngine(goal=goal, workflow_type=workflow_type, config=config)
+    # Merge stored overrides from source trace (explicit overrides take precedence)
+    source_trace_id = data.get('source_trace_id', '')
+    if source_trace_id:
+        stored = _load_stored_overrides(source_trace_id)
+        if stored:
+            explicit = config.get('prompt_overrides', {})
+            merged = {**stored, **explicit}
+            config['prompt_overrides'] = merged
+
+    # Reconstruct topology from trace if workflow_type isn't predefined
+    trace_topology = None
+    if workflow_type not in WORKFLOW_TOPOLOGIES and source_trace_id:
+        trace_topology = _reconstruct_trace_topology(source_trace_id)
+
+    print(f"[stream_workflow] workflow_type={workflow_type!r}, config_keys={list(config.keys())}, prompt_overrides={list(config.get('prompt_overrides', {}).keys())}, trace_topology={'yes' if trace_topology else 'no'}")
+
+    engine = WorkflowEngine(goal=goal, workflow_type=workflow_type, config=config, topology=trace_topology)
+
+    def _streaming_with_persistence():
+        """Wrap the SSE stream to capture the final event and persist to DB."""
+        complete_data = None
+        for chunk in engine.execute_streaming():
+            yield chunk
+            # Parse SSE chunks to capture the 'complete' event
+            if 'data: ' in chunk:
+                for line in chunk.split('\n'):
+                    if line.startswith('data: '):
+                        try:
+                            evt = json.loads(line[6:])
+                            if evt.get('type') == 'complete':
+                                complete_data = evt.get('data', {})
+                        except (json.JSONDecodeError, ValueError):
+                            pass
+
+        # After stream ends, persist the result
+        if complete_data:
+            journey_data = complete_data.get('journey', {})
+            _persist_workflow_result(
+                trace_id=complete_data.get('trace_id', ''),
+                journey_name=complete_data.get('journey_name', ''),
+                workflow_type=workflow_type,
+                goal=goal,
+                samples=journey_data.get('samples', []),
+                raw_journey=journey_data,
+            )
 
     response = StreamingHttpResponse(
-        engine.execute_streaming(),
+        _streaming_with_persistence(),
         content_type='text/event-stream',
     )
     response['Cache-Control'] = 'no-cache'

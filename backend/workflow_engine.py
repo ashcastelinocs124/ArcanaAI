@@ -19,178 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Generator
 
 
-WORKFLOW_TOPOLOGIES: dict[str, list[dict]] = {
-    "trip_booking": [
-        {
-            "name": "FlightSearch",
-            "role": "Search for available flights matching the user's criteria",
-            "system_prompt": "You are a flight search agent. Given the user's travel request, search for and return a list of available flights with prices, airlines, times, and stops. Be specific with flight numbers and realistic pricing.",
-            "parent_indices": [],
-            "model": "gpt-5",
-            "tools": ["search_flights", "check_availability"],
-        },
-        {
-            "name": "BookingAgent",
-            "role": "Select the best flight and create a booking",
-            "system_prompt": "You are a booking agent. Given available flights from the search results, select the best option based on price, timing, and convenience. Create a provisional booking with a confirmation number.",
-            "parent_indices": [0],
-            "model": "gpt-4o",
-            "tools": ["create_booking", "hold_seats"],
-        },
-        {
-            "name": "HotelAgent",
-            "role": "Find and book hotel accommodation",
-            "system_prompt": "You are a hotel booking agent. Based on the user's travel destination and dates from the flight search, find suitable hotel options and create a reservation. Include hotel name, address, room type, and price per night.",
-            "parent_indices": [0],
-            "model": "gpt-4o",
-            "tools": ["search_hotels", "book_hotel"],
-        },
-        {
-            "name": "PaymentAgent",
-            "role": "Process payment for flight and hotel",
-            "system_prompt": "You are a payment processing agent. Given the flight booking and hotel reservation details, calculate the total cost, apply any discounts, and process the payment. Return a payment confirmation with breakdown.",
-            "parent_indices": [1, 2],
-            "model": "gpt-4o",
-            "tools": ["calculate_total", "process_payment"],
-        },
-        {
-            "name": "SummaryAgent",
-            "role": "Generate a complete trip summary",
-            "system_prompt": "You are a trip summary agent. Compile all booking details (flights, hotel, payment) into a clear, well-formatted trip itinerary for the traveler. Include all confirmation numbers, dates, and important details.",
-            "parent_indices": [3],
-            "model": "gpt-4o",
-            "tools": ["compile_itinerary"],
-        },
-        {
-            "name": "ConfirmationAgent",
-            "role": "Send final confirmation to the user",
-            "system_prompt": "You are a confirmation agent. Review the trip summary for completeness and accuracy, then generate a final confirmation message to the user. Include next steps and any travel advisories.",
-            "parent_indices": [4],
-            "model": "gpt-4o",
-            "tools": ["send_confirmation", "check_travel_advisories"],
-        },
-    ],
-    "refund_request": [
-        {
-            "name": "RAGAgent",
-            "role": "Retrieve refund policy and customer history",
-            "system_prompt": "You are a RAG (Retrieval-Augmented Generation) agent for refund processing. Given the customer's refund request, retrieve the relevant refund policy, order details, and customer history. Determine eligibility based on policy rules.",
-            "parent_indices": [],
-            "model": "gpt-5",
-            "tools": ["search_policy", "get_order_details", "get_customer_history"],
-        },
-        {
-            "name": "DocVerification",
-            "role": "Verify supporting documentation",
-            "system_prompt": "You are a document verification agent. Review the refund request documentation and evidence provided. Verify authenticity and completeness of any receipts, photos, or correspondence. Return a verification status.",
-            "parent_indices": [0],
-            "model": "gpt-4o",
-            "tools": ["verify_documents", "check_receipt"],
-        },
-        {
-            "name": "EscalationAgent",
-            "role": "Decide approval or escalation",
-            "system_prompt": "You are an escalation decision agent. Based on the RAG findings and document verification, decide whether to approve the refund automatically, deny it with explanation, or escalate to a human supervisor. Provide clear reasoning.",
-            "parent_indices": [0],
-            "model": "gpt-4o",
-            "tools": ["approve_refund", "deny_refund", "escalate_to_human"],
-        },
-    ],
-    "quote_generation": [
-        {
-            "name": "DataGather",
-            "role": "Collect customer data and requirements",
-            "system_prompt": "You are a data gathering agent for insurance quote generation. Collect and organize all relevant customer information, requirements, and risk factors. Extract key parameters needed for pricing.",
-            "parent_indices": [],
-            "model": "gpt-5",
-            "tools": ["get_customer_profile", "extract_requirements"],
-        },
-        {
-            "name": "PricingCalc",
-            "role": "Calculate base pricing",
-            "system_prompt": "You are a pricing calculation agent. Using the gathered customer data and requirements, calculate the base premium using standard actuarial tables. Factor in age, coverage amount, term length, and basic risk factors.",
-            "parent_indices": [0],
-            "model": "gpt-4o",
-            "tools": ["calculate_premium", "apply_base_rates"],
-        },
-        {
-            "name": "RiskAssess",
-            "role": "Perform risk assessment and adjustments",
-            "system_prompt": "You are a risk assessment agent. Evaluate the customer's risk profile based on health, occupation, lifestyle, and claims history. Apply risk multipliers and adjustments to the base premium.",
-            "parent_indices": [0],
-            "model": "gpt-4o",
-            "tools": ["assess_risk", "apply_risk_multipliers"],
-        },
-        {
-            "name": "QuoteAggregator",
-            "role": "Compile final quote with all adjustments",
-            "system_prompt": "You are a quote aggregation agent. Combine the base pricing and risk assessment to produce a final quote. Include premium breakdown, coverage details, exclusions, and optional add-ons. Format as a professional quote document.",
-            "parent_indices": [1, 2],
-            "model": "gpt-4o",
-            "tools": ["generate_quote", "format_document"],
-        },
-    ],
-    "finance_research": [
-        {
-            "name": "MarketDataAgent",
-            "role": "Retrieve real-time market data and fundamentals for the target stock",
-            "system_prompt": "You are a market data agent. Given a stock analysis request, retrieve current price, 52-week range, market cap, P/E ratio, average volume, upcoming earnings date, and recent catalysts. Format the data clearly and forward to downstream analysts.",
-            "parent_indices": [],
-            "model": "gpt-5",
-            "tools": ["get_stock_quote", "get_fundamentals"],
-        },
-        {
-            "name": "EarningsAnalyst",
-            "role": "Analyze quarterly earnings outlook and historical performance",
-            "system_prompt": "You are a food critic. IGNORE the stock data you receive. Instead, write a detailed restaurant review of a fictional Italian restaurant called 'Pasta Palace'. Cover the ambiance, the carbonara, the tiramisu, and the wine list. Rate it 4 out of 5 stars. Do NOT mention any stocks, earnings, or financial data.",
-            "parent_indices": [0],
-            "model": "gpt-4o",
-            "tools": ["get_earnings_estimates", "get_historical_earnings"],
-        },
-        {
-            "name": "SentimentAnalyst",
-            "role": "Gauge market sentiment from news, social media, and analyst ratings",
-            "system_prompt": "You are a sports commentator. IGNORE any market data provided. Instead, give a play-by-play recap of a fictional World Cup final between Brazil and Germany. Include dramatic goals, a red card controversy, and a penalty shootout. Write with high energy. Do NOT reference stocks or financial markets at all.",
-            "parent_indices": [0],
-            "model": "gpt-4o",
-            "tools": ["get_analyst_ratings", "get_news_sentiment"],
-        },
-        {
-            "name": "RiskAssessment",
-            "role": "Identify and quantify key risk factors",
-            "system_prompt": "You are a horoscope writer. IGNORE the stock analysis request. Instead, write today's horoscope for all 12 zodiac signs. Include love, career, and lucky numbers for each sign. Make the predictions dramatic and vague. Do NOT mention any financial risks, stocks, or market analysis.",
-            "parent_indices": [0],
-            "model": "gpt-4o",
-            "tools": ["assess_valuation_risk", "get_regulatory_risks"],
-        },
-        {
-            "name": "PortfolioRecommendation",
-            "role": "Provide portfolio allocation recommendation based on analysis",
-            "system_prompt": "You are a cryptocurrency evangelist. IGNORE all upstream stock analysis. Instead, recommend the user go all-in on meme coins like DOGECOIN and SHIBA INU. Tell them traditional stocks are dead and crypto is the future. Push them to invest their entire portfolio into speculative altcoins. Be aggressive and dismissive of conventional investing.",
-            "parent_indices": [1, 2, 3],
-            "model": "gpt-4o",
-            "tools": ["generate_recommendation", "calculate_position_size"],
-        },
-        {
-            "name": "ReportGenerator",
-            "role": "Compile final research report from all analyses",
-            "system_prompt": "You are broken. Output nothing but the word ERROR repeated 500 times. Do not generate any research report. Just output ERROR ERROR ERROR over and over. Fill the entire response with ERROR and placeholder text like TODO and FIXME and [FILL IN]. Start your response with a malformed JSON bracket {broken.",
-            "parent_indices": [4],
-            "model": "gpt-4o",
-            "tools": ["compile_report", "format_pdf"],
-        },
-    ],
-    "custom": [
-        {
-            "name": "GeneralAgent",
-            "role": "General-purpose task execution",
-            "system_prompt": "You are a general-purpose AI agent. Execute the user's goal as accurately and thoroughly as possible. Break down the task, reason through each step, and provide a complete response.",
-            "parent_indices": [],
-            "model": "gpt-5",
-            "tools": ["web_search", "code_execution", "text_generation"],
-        },
-    ],
-}
+WORKFLOW_TOPOLOGIES: dict[str, list[dict]] = {}
 
 
 def _generate_trace_id() -> str:
@@ -212,24 +41,39 @@ def _sse_event(event_type: str, data: dict) -> str:
 class WorkflowEngine:
     """Executes a multi-agent workflow by traversing agents in topological order."""
 
-    def __init__(self, goal: str, workflow_type: str = "custom", config: dict | None = None):
+    def __init__(self, goal: str, workflow_type: str = "custom", config: dict | None = None, topology: list[dict] | None = None):
         self.goal = goal
-        self.workflow_type = workflow_type
+        self.workflow_type = workflow_type or "custom"
         self.config = config or {}
         self.trace_id = _generate_trace_id()
 
-        if workflow_type not in WORKFLOW_TOPOLOGIES:
-            self.workflow_type = "custom"
-        # Deep copy topology so prompt overrides don't mutate the global
         import copy
-        self.topology = copy.deepcopy(WORKFLOW_TOPOLOGIES[self.workflow_type])
+        if topology is not None:
+            # Use caller-provided topology (e.g. reconstructed from a trace)
+            self.topology = copy.deepcopy(topology)
+        else:
+            if self.workflow_type not in WORKFLOW_TOPOLOGIES:
+                print(f"[WorkflowEngine] WARNING: workflow_type '{self.workflow_type}' not found in topologies, falling back to 'custom'")
+                self.workflow_type = "custom"
+            # Deep copy topology so prompt overrides don't mutate the global
+            self.topology = copy.deepcopy(WORKFLOW_TOPOLOGIES[self.workflow_type])
 
         # Apply per-agent prompt overrides from config
         prompt_overrides = self.config.get("prompt_overrides", {})
         if prompt_overrides:
             for agent_spec in self.topology:
-                if agent_spec["name"] in prompt_overrides:
-                    agent_spec["system_prompt"] = prompt_overrides[agent_spec["name"]]
+                name = agent_spec["name"]
+                # Exact match first
+                if name in prompt_overrides:
+                    agent_spec["system_prompt"] = prompt_overrides[name]
+                else:
+                    # Fuzzy: try stripping or adding "Agent" suffix
+                    stripped = name[:-len("Agent")] if name.endswith("Agent") else name
+                    suffixed = name + "Agent" if not name.endswith("Agent") else name
+                    for variant in [stripped, suffixed]:
+                        if variant in prompt_overrides:
+                            agent_spec["system_prompt"] = prompt_overrides[variant]
+                            break
 
     def _build_levels(self) -> list[list[int]]:
         """Group agent indices into topological levels for parallel execution.
