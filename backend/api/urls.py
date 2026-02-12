@@ -17,7 +17,6 @@ def serve_index(request):
 urlpatterns = [
     path('', serve_index),
     path('health', views.health_check),
-    path('api/admin/flush-traces', views.flush_traces),
     path('api/traces', views.list_traces),
     path('api/traces/upload', views.upload_traces),
     path('api/optimizer/run', views.run_prompt_optimizer),
