@@ -202,6 +202,20 @@ def health_check(request):
     })
 
 
+@require_http_methods(["POST"])
+def flush_traces(request):
+    """Temporary admin endpoint to flush all traces from DB."""
+    deleted_traces, _ = ExecutionTrace.objects.all().delete()
+    deleted_agents, _ = AgentExecution.objects.all().delete()
+    deleted_overrides, _ = PromptOverride.objects.all().delete()
+    return JsonResponse({
+        'flushed': True,
+        'deleted_traces': deleted_traces,
+        'deleted_agents': deleted_agents,
+        'deleted_overrides': deleted_overrides,
+    })
+
+
 # ---------------------------------------------------------------------------
 # Traces (DB-backed, replaces static data.json)
 # ---------------------------------------------------------------------------
