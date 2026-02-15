@@ -297,6 +297,10 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
         Metrics
       </div>
+      <div class="sidebar-item" data-page="caches">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        Caches
+      </div>
       <div class="sidebar-item" data-page="logs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         Logs
@@ -365,6 +369,10 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
           <span id="apikey-dot" style="width:7px;height:7px;border-radius:50%;background:var(--red)"></span>
           <span id="apikey-label" style="color:var(--text-dim)">No API Key</span>
         </div>
+        <button class="btn btn-ghost" onclick="navigateTo('docs')" style="display:flex;align-items:center;gap:6px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          Docs
+        </button>
         <button class="btn btn-ghost" onclick="location.reload()">Refresh</button>
       </div>
     </div>
@@ -377,8 +385,12 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
       <div class="page" id="page-tracedetail"></div>
       <!-- Metrics Page -->
       <div class="page" id="page-metrics"></div>
+      <!-- Caches Page -->
+      <div class="page" id="page-caches"></div>
       <!-- Logs Page -->
       <div class="page" id="page-logs"></div>
+      <!-- Live Monitoring Page -->
+      <div class="page" id="page-livemonitor"></div>
       <!-- DAG Viewer Page -->
       <div class="page" id="page-dagviewer"></div>
       <!-- Semantic Pipeline Page -->
@@ -391,6 +403,8 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
       <div class="page" id="page-promptlib"></div>
       <!-- API Page -->
       <div class="page" id="page-api"></div>
+      <!-- Documentation Page -->
+      <div class="page" id="page-docs"></div>
       <!-- Settings Page -->
       <div class="page" id="page-settings"></div>
     </div>
@@ -406,7 +420,12 @@ body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
 
 <script>
 // ===== GLOBAL API KEY =====
-var globalApiKey = localStorage.getItem('arcana-openai-key') || '';
+var globalApiKey = '';
+try {
+  globalApiKey = localStorage.getItem('arcana-openai-key') || '';
+} catch (e) {
+  console.warn('localStorage not available:', e.message);
+}
 
 function showApiKeyModal() {
   var modal = document.getElementById('apikey-modal');
@@ -420,7 +439,11 @@ function submitApiKeyModal() {
   var inp = document.getElementById('modalApiKey');
   globalApiKey = (inp.value || '').trim();
   if (!globalApiKey) { inp.style.borderColor = 'var(--red)'; return; }
-  localStorage.setItem('arcana-openai-key', globalApiKey);
+  try {
+    localStorage.setItem('arcana-openai-key', globalApiKey);
+  } catch (e) {
+    console.warn('Could not save to localStorage:', e.message);
+  }
   optimizerState.apiKey = globalApiKey;
   document.getElementById('apikey-modal').style.display = 'none';
   updateApiKeyStatus();
@@ -455,6 +478,16 @@ function apiFetch(url, options) {
   if (globalApiKey) {
     options.headers['X-API-Key'] = globalApiKey;
   }
+
+  // Auto-construct backend URL if URL is relative (starts with /)
+  if (url.startsWith('/')) {
+    var backendBase = '';
+    if (location.port && location.port !== '5000') {
+      backendBase = location.protocol + '//' + location.hostname + ':5000';
+    }
+    url = backendBase + url;
+  }
+
   return fetch(url, options);
 }
 
@@ -701,6 +734,7 @@ function renderCurrentPage() {
   if (page === 'overview') renderOverview();
   else if (page === 'traces') renderTraces();
   else if (page === 'metrics') renderMetrics();
+  else if (page === 'caches') renderCaches();
   else if (page === 'logs') renderLogs();
   else if (page === 'dagviewer') renderDAGViewer();
   else if (page === 'evaluations') renderEvaluations();
@@ -708,6 +742,7 @@ function renderCurrentPage() {
   else if (page === 'pipeline') renderPipeline();
   else if (page === 'optimizer') renderOptimizer();
   else if (page === 'promptlib') renderPromptLibrary();
+  else if (page === 'docs') renderDocs();
 }
 
 function renderEmptyState(containerId, title, sub) {
@@ -821,7 +856,7 @@ function navigateTo(page, opts) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const pageEl = document.getElementById('page-' + page);
   if (pageEl) { pageEl.classList.add('active'); }
-  const names = { overview:'Overview', traces:'Traces', metrics:'Metrics', logs:'Logs', pipeline:'Goal Monitor', optimizer:'Prompt Optimizer', dagviewer:'DAG Viewer', evaluations:'Evaluations', promptlib:'Prompt Library', api:'API', settings:'Settings', tracedetail:'Trace Detail' };
+  const names = { overview:'Overview', traces:'Traces', metrics:'Metrics', caches:'Caches', logs:'Logs', pipeline:'Goal Monitor', optimizer:'Prompt Optimizer', livemonitor:'Live Monitoring', dagviewer:'DAG Viewer', evaluations:'Evaluations', promptlib:'Prompt Library', api:'API', docs:'Documentation', settings:'Settings', tracedetail:'Trace Detail' };
   document.getElementById('breadcrumb-current').textContent = names[page] || page;
   renderPage(page, opts);
 }
@@ -842,13 +877,16 @@ function renderPage(page, opts) {
     case 'overview': renderOverview(); break;
     case 'traces': renderTraces(); break;
     case 'metrics': renderMetrics(); break;
+    case 'caches': renderCaches(); break;
     case 'logs': renderLogs(); break;
     case 'pipeline': renderPipeline(); break;
     case 'optimizer': renderOptimizer(); break;
+    case 'livemonitor': renderLiveMonitor(); break;
     case 'dagviewer': renderDAGViewer(opts && opts.traceId); break;
     case 'evaluations': renderEvaluations(); break;
     case 'promptlib': renderPromptLibrary(); break;
     case 'api': renderApiPage(); break;
+    case 'docs': renderDocs(); break;
     case 'settings': renderSettings(); break;
   }
 }
@@ -1768,6 +1806,143 @@ function renderMetrics() {
   `;
 }
 
+// ===== CACHES =====
+function renderCaches() {
+  if (!dataLoaded) return renderEmptyState('page-caches', 'No Cache Data', 'Upload agent logs with cached token metrics to view prompt caching analytics.');
+  const allAgents = getAllAgents();
+  const colors = ['var(--copper)', 'var(--blue)', 'var(--green)', 'var(--yellow)', 'var(--red)'];
+
+  // Aggregate totals
+  let totalPrompt = 0, totalCached = 0, totalCompletion = 0;
+  const modelStats = {};
+  const journeyStats = [];
+
+  journeys.forEach(j => {
+    let jPrompt = 0, jCached = 0, jAgents = 0;
+    (j.samples || []).forEach(s => {
+      const t = s.telemetry?.tokens || {};
+      const p = t.prompt_tokens || 0;
+      const c = t.cached_tokens || 0;
+      const comp = t.completion_tokens || 0;
+      totalPrompt += p;
+      totalCached += c;
+      totalCompletion += comp;
+      jPrompt += p;
+      jCached += c;
+      jAgents++;
+      const m = s.model_parameters?.model || 'unknown';
+      if (!modelStats[m]) modelStats[m] = { prompt: 0, cached: 0 };
+      modelStats[m].prompt += p;
+      modelStats[m].cached += c;
+    });
+    journeyStats.push({ name: j.journey_name, traceId: j.trace_id, agents: jAgents, prompt: jPrompt, cached: jCached, rate: jPrompt > 0 ? jCached / jPrompt : 0 });
+  });
+
+  const hitRate = totalPrompt > 0 ? (totalCached / totalPrompt * 100).toFixed(1) : '0.0';
+  // OpenAI cached tokens cost 50% less; savings = cached_tokens * avg_cost_per_token * 0.5
+  const avgCostPer1k = 0.005; // ~$0.005/1k prompt tokens (blended across models)
+  const estSavings = (totalCached / 1000 * avgCostPer1k * 0.5).toFixed(4);
+  const journeysWithCache = journeyStats.filter(j => j.cached > 0).length;
+
+  // Model bar chart
+  const maxModelPrompt = Math.max(...Object.values(modelStats).map(v => v.prompt), 1);
+
+  // Journey table sorted by hit rate descending
+  journeyStats.sort((a, b) => b.rate - a.rate);
+
+  document.getElementById('page-caches').innerHTML = `
+    <div class="section-heading">Prompt Caching</div>
+    <div class="section-sub">Token caching analytics across ${journeys.length} traces and ${allAgents.length} agent executions. Cached tokens reduce latency and cost.</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px" class="anim-stagger">
+      <div class="metric-card" style="padding:18px">
+        <div style="font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Total Cached Tokens</div>
+        <div style="font-size:1.8rem;font-weight:700;font-family:var(--font-display);color:var(--copper)">${totalCached.toLocaleString()}</div>
+        <div style="font-size:.7rem;color:var(--text-secondary);margin-top:4px">of ${totalPrompt.toLocaleString()} prompt tokens</div>
+      </div>
+      <div class="metric-card" style="padding:18px">
+        <div style="font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Cache Hit Rate</div>
+        <div style="font-size:1.8rem;font-weight:700;font-family:var(--font-display);color:${parseFloat(hitRate)>=50?'var(--green)':'var(--yellow)'}">${hitRate}%</div>
+        <div style="font-size:.7rem;color:var(--text-secondary);margin-top:4px">${totalCached.toLocaleString()} cached / ${totalPrompt.toLocaleString()} prompt</div>
+      </div>
+      <div class="metric-card" style="padding:18px">
+        <div style="font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Est. Cost Savings</div>
+        <div style="font-size:1.8rem;font-weight:700;font-family:var(--font-display);color:var(--green)">$${estSavings}</div>
+        <div style="font-size:.7rem;color:var(--text-secondary);margin-top:4px">cached tokens @ 50% discount</div>
+      </div>
+      <div class="metric-card" style="padding:18px">
+        <div style="font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Journeys with Caching</div>
+        <div style="font-size:1.8rem;font-weight:700;font-family:var(--font-display);color:var(--blue)">${journeysWithCache}</div>
+        <div style="font-size:.7rem;color:var(--text-secondary);margin-top:4px">of ${journeys.length} total journeys</div>
+      </div>
+    </div>
+    <div class="metrics-grid" style="margin-bottom:24px">
+      <div class="metric-card">
+        <div class="metric-card-title">Cached vs Uncached by Model</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+          ${Object.entries(modelStats).map(([m, v], i) => {
+            const cachedPct = v.prompt > 0 ? (v.cached / v.prompt * 100).toFixed(0) : 0;
+            const cachedW = v.prompt > 0 ? (v.cached / maxModelPrompt * 100) : 0;
+            const uncachedW = v.prompt > 0 ? ((v.prompt - v.cached) / maxModelPrompt * 100) : 0;
+            return `<div>
+              <div style="display:flex;justify-content:space-between;font-size:.75rem;margin-bottom:4px">
+                <span style="color:var(--text-secondary)">${m}</span>
+                <span style="color:var(--text-dim)">${v.cached.toLocaleString()} / ${v.prompt.toLocaleString()} (${cachedPct}%)</span>
+              </div>
+              <div style="display:flex;height:20px;border-radius:4px;overflow:hidden;background:var(--border)">
+                <div style="width:${cachedW}%;background:${colors[i % colors.length]};transition:width .5s ease" title="Cached: ${v.cached.toLocaleString()}"></div>
+                <div style="width:${uncachedW}%;background:color-mix(in srgb, ${colors[i % colors.length]} 25%, transparent);transition:width .5s ease" title="Uncached: ${(v.prompt - v.cached).toLocaleString()}"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:16px;margin-top:12px;font-size:.65rem;color:var(--text-dim)">
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--copper);margin-right:4px"></span>Cached</span>
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:color-mix(in srgb, var(--copper) 25%, transparent);margin-right:4px"></span>Uncached</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-title">Cache Hit Rate by Model</div>
+        <div class="bar-chart">${Object.entries(modelStats).map(([m, v], i) => {
+          const pct = v.prompt > 0 ? (v.cached / v.prompt * 100) : 0;
+          return `<div class="bar-col"><div class="bar-value">${pct.toFixed(0)}%</div><div class="bar" style="height:${pct * 1.2}px;background:${colors[i % colors.length]}"></div><div class="bar-label">${m.split('-').slice(0,2).join('-')}</div></div>`;
+        }).join('')}</div>
+      </div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card-title">Cache Metrics by Journey</div>
+      <div style="overflow-x:auto;margin-top:12px">
+        <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);text-align:left">
+              <th style="padding:8px 12px;color:var(--text-dim);font-weight:500">Journey</th>
+              <th style="padding:8px 12px;color:var(--text-dim);font-weight:500;text-align:right">Agents</th>
+              <th style="padding:8px 12px;color:var(--text-dim);font-weight:500;text-align:right">Prompt Tokens</th>
+              <th style="padding:8px 12px;color:var(--text-dim);font-weight:500;text-align:right">Cached Tokens</th>
+              <th style="padding:8px 12px;color:var(--text-dim);font-weight:500;text-align:right">Hit Rate</th>
+              <th style="padding:8px 12px;color:var(--text-dim);font-weight:500;text-align:right">Est. Savings</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${journeyStats.map(j => {
+              const pct = (j.rate * 100).toFixed(1);
+              const sav = (j.cached / 1000 * avgCostPer1k * 0.5).toFixed(4);
+              const color = j.rate >= 0.5 ? 'var(--green)' : j.rate >= 0.3 ? 'var(--yellow)' : 'var(--text-secondary)';
+              return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="navigateToTrace('${j.traceId}')">
+                <td style="padding:8px 12px;color:var(--text-primary)">${j.name}</td>
+                <td style="padding:8px 12px;text-align:right;color:var(--text-secondary)">${j.agents}</td>
+                <td style="padding:8px 12px;text-align:right;color:var(--text-secondary)">${j.prompt.toLocaleString()}</td>
+                <td style="padding:8px 12px;text-align:right;color:var(--copper)">${j.cached.toLocaleString()}</td>
+                <td style="padding:8px 12px;text-align:right"><span style="color:${color};font-weight:500">${pct}%</span></td>
+                <td style="padding:8px 12px;text-align:right;color:var(--green)">$${sav}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 // ===== LOGS =====
 function renderLogs() {
   if (!dataLoaded) return renderEmptyState('page-logs', 'No Logs Available', 'Upload agent logs to view a timeline of all agent executions.');
@@ -1808,8 +1983,22 @@ function renderDAGViewer(selectedTrace) {
       .then(function(data) { if (data) window._workflowTopologies = data; })
       .catch(function() {});
   }
-  const sel = selectedTrace || journeys[0].trace_id;
-  const journey = journeys.find(j => j.trace_id === sel);
+  // Include live sessions in trace list
+  const liveSessions = liveMonitorState.sessions || [];
+  const allTraces = [
+    ...journeys,
+    ...liveSessions.map(s => ({
+      trace_id: s.trace_id,
+      journey_name: '🔴 ' + s.user_goal,
+      samples: [],
+      isLiveSession: true,
+      liveSession: s
+    }))
+  ];
+
+  const sel = selectedTrace || (journeys.length > 0 ? journeys[0].trace_id : (liveSessions.length > 0 ? liveSessions[0].trace_id : null));
+  const journey = allTraces.find(j => j.trace_id === sel);
+  const isLiveSession = journey?.isLiveSession || false;
   const traceResult = getTraceCheckpoints(sel);
   const checkpoints = traceResult ? traceResult.checkpoints || [] : [];
   const deviations = traceResult ? traceResult.deviations || [] : [];
@@ -1826,10 +2015,45 @@ function renderDAGViewer(selectedTrace) {
       </button>
     </div>
 
-    <div class="dag-viewer-controls" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-      <select id="dagSelect" onchange="renderDAGViewer(this.value)">
-        ${journeys.map(j => `<option value="${j.trace_id}" ${j.trace_id === sel ? 'selected' : ''}>${j.journey_name} (${j.trace_id.substring(0,12)}...)</option>`).join('')}
+    <div class="dag-viewer-controls" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+      <select id="dagSelect" onchange="renderDAGViewer(this.value)" style="flex:1;max-width:400px">
+        ${liveSessions.length > 0 ? `<optgroup label="Live Coding Sessions">
+          ${liveSessions.map(s => `<option value="${s.trace_id}" ${s.trace_id === sel ? 'selected' : ''}>🔴 ${s.user_goal} (${s.trace_id.substring(0,12)}...)</option>`).join('')}
+        </optgroup>` : ''}
+        ${journeys.length > 0 ? `<optgroup label="Completed Traces">
+          ${journeys.map(j => `<option value="${j.trace_id}" ${j.trace_id === sel ? 'selected' : ''}>${j.journey_name} (${j.trace_id.substring(0,12)}...)</option>`).join('')}
+        </optgroup>` : ''}
       </select>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:.85rem;color:var(--text-dim);white-space:nowrap">Or load:</span>
+        <input
+          id="dag-trace-input"
+          type="text"
+          placeholder="Paste trace ID..."
+          style="width:200px;background:var(--bg);padding:8px 12px;font-size:.85rem;font-family:monospace;border-radius:var(--radius-md);border:1px solid var(--border)"
+        />
+        <button
+          class="btn btn-primary"
+          onclick="loadTraceInDAG(document.getElementById('dag-trace-input').value.trim())"
+          style="padding:8px 16px;font-size:.85rem;white-space:nowrap"
+        >
+          Load Trace
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Coding Sessions -->
+    <div id="live-sessions-panel" style="margin:20px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:1rem;font-weight:600;color:var(--text)">Live Coding Sessions</div>
+        <button class="btn btn-primary" onclick="createLiveSessionFromDAG()" style="padding:8px 16px;font-size:.85rem;display:flex;align-items:center;gap:6px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          New Session
+        </button>
+      </div>
+      <div id="live-sessions-list" style="display:grid;gap:10px"></div>
     </div>
 
     ${window._pendingRerun ? `
@@ -1852,6 +2076,33 @@ function renderDAGViewer(selectedTrace) {
     </div>
     ` : ''}
 
+    ${isLiveSession && (!journey?.samples || journey.samples.length === 0) ? `
+    <!-- Coding Session Indicator -->
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:linear-gradient(135deg,rgba(139,92,246,.1),rgba(139,92,246,.05));border:1px solid rgba(139,92,246,.3);border-radius:var(--radius-md);margin-bottom:16px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2">
+        <polyline points="16 18 22 12 16 6"></polyline>
+        <polyline points="8 6 2 12 8 18"></polyline>
+      </svg>
+      <span style="font-size:.85rem;font-weight:600;color:#8b5cf6">Coding Session</span>
+      <span style="font-size:.75rem;color:var(--text-dim)">Tool actions with drift detection</span>
+    </div>
+    <div id="live-session-drift-viewer" style="margin-bottom:20px">
+      <div style="padding:16px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);font-size:.85rem;color:var(--text-dim);text-align:center">
+        Loading live session data...
+      </div>
+    </div>
+    ` : `
+    <!-- Agent Workflow Indicator -->
+    ${journey?.samples?.length > 0 ? `
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:linear-gradient(135deg,rgba(200,149,108,.1),rgba(200,149,108,.05));border:1px solid rgba(200,149,108,.3);border-radius:var(--radius-md);margin-bottom:16px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c8956c" stroke-width="2">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M12 1v6m0 6v6m5.2-14.8l-4.2 4.2m0 6l-4.2 4.2m14.8-5.2l-6-0m-6 0l-6 0m14.8 5.2l-4.2-4.2m0-6l-4.2-4.2"></path>
+      </svg>
+      <span style="font-size:.85rem;font-weight:600;color:#c8956c">Agent Workflow</span>
+      <span style="font-size:.75rem;color:var(--text-dim)">${journey.samples.length} agents • Multi-agent execution</span>
+    </div>
+    ` : ''}
     <div class="dag-container">
       <div class="dag-title">${journey?.journey_name || ''}</div>
       <div id="dag-viewer-svg"></div>
@@ -1876,6 +2127,7 @@ function renderDAGViewer(selectedTrace) {
         </div>` : ''}
       </div>
     </div>
+    `}
 
     ${checkpoints.length ? `
     <div class="section-heading" style="margin-top:24px;display:flex;align-items:center;gap:8px">
@@ -1917,9 +2169,666 @@ function renderDAGViewer(selectedTrace) {
     </div>
   `;
 
-  if (journey) renderDAGWithCheckpoints('dag-viewer-svg', journey, traceResult);
+  // Only render DAG if journey has agent data
+  if (journey && journey.samples && journey.samples.length > 0) {
+    renderDAGWithCheckpoints('dag-viewer-svg', journey, traceResult);
+  }
+
+  // Load file-based drift data for live sessions
+  if (isLiveSession && (!journey?.samples || journey.samples.length === 0)) {
+    loadLiveSessionDriftData(sel);
+  }
+
+  // Load and display live sessions
+  loadAndRenderLiveSessions();
+
+  // Auto-refresh live sessions every 5 seconds
+  if (liveMonitorState.dagRefreshInterval) clearInterval(liveMonitorState.dagRefreshInterval);
+  liveMonitorState.dagRefreshInterval = setInterval(() => {
+    if (currentPage === 'dagviewer') loadAndRenderLiveSessions();
+  }, 5000);
 }
 window.renderDAGViewer = renderDAGViewer;
+
+async function loadLiveSessionDriftData(traceId) {
+  const container = document.getElementById('live-session-drift-viewer');
+  if (!container) return;
+
+  try {
+    const response = await apiFetch(`/api/live/sessions/${traceId}/file-state`);
+    if (!response.ok) {
+      container.innerHTML = `
+        <div style="padding:20px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);color:var(--text-dim);font-size:.85rem">
+          No file-based monitoring data found for this session.<br>
+          <span style="font-size:.78rem;margin-top:8px;display:block">
+            To track actions with hooks: <code style="background:rgba(200,149,108,.08);padding:2px 6px;border-radius:4px">export MONITOR_SESSION="${traceId}"</code>
+          </span>
+        </div>
+      `;
+      return;
+    }
+
+    const result = await response.json();
+    const data = result.data || result;
+
+    // Render both graph and timeline
+    container.innerHTML = renderActionFlowGraph(data) + renderLiveDriftVisualization(data);
+  } catch (e) {
+    container.innerHTML = `
+      <div style="padding:20px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);color:var(--text-dim);font-size:.85rem">
+        Error loading session data: ${e.message}
+      </div>
+    `;
+  }
+}
+window.loadLiveSessionDriftData = loadLiveSessionDriftData;
+
+function renderLiveDriftVisualization(data) {
+  const actions = data.actions || [];
+  const driftAlert = data.drift_alert;
+  const hasDrift = data.has_drift_flag;
+
+  let html = '';
+
+  // User goal banner
+  if (data.user_goal) {
+    html += `
+      <div style="background:linear-gradient(135deg,rgba(200,149,108,.06),rgba(200,149,108,.02));border:1px solid rgba(200,149,108,.2);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:20px">
+        <div style="font-size:.78rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">User Goal</div>
+        <div style="font-size:.95rem;color:var(--text);line-height:1.6">${data.user_goal}</div>
+      </div>
+    `;
+  }
+
+  // Drift alert banner
+  if (hasDrift && driftAlert) {
+    const confidence = (driftAlert.confidence * 100).toFixed(0);
+
+    // Check for user response
+    const userChoice = data.user_response?.user_choice;
+    const hasUserResponse = userChoice === 'continue' || userChoice === 'stop';
+
+    // Color based on user response
+    const alertColor = userChoice === 'continue' ? '#fbbf24' : '#ef4444'; // amber if approved, red if rejected
+    const alertBg = userChoice === 'continue' ? 'rgba(251,191,36,.06)' : 'rgba(239,68,68,.06)';
+    const alertBorder = userChoice === 'continue' ? 'rgba(251,191,36,.25)' : 'rgba(239,68,68,.25)';
+
+    html += `
+      <div style="background:linear-gradient(135deg,${alertBg},${alertBg});border:1px solid ${alertBorder};border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div style="width:36px;height:36px;border-radius:50%;background:${alertBg};border:1.5px solid ${alertBorder};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${alertColor}" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:.95rem;font-weight:600;color:${alertColor};margin-bottom:4px">
+              Drift Detected at Action ${driftAlert.action_count}
+              ${hasUserResponse ? `<span style="font-size:.8rem;font-weight:500;margin-left:8px;color:var(--text-dim)">• ${userChoice === 'continue' ? 'User Approved' : 'User Rejected'}</span>` : ''}
+            </div>
+            <div style="font-size:.78rem;color:var(--text-dim)">Confidence: ${confidence}%</div>
+          </div>
+        </div>
+        <div style="font-size:.88rem;color:var(--text-secondary);line-height:1.6;margin-bottom:12px;padding-left:48px">
+          <strong>Reason:</strong> ${driftAlert.reason}
+        </div>
+        <div style="font-size:.88rem;color:var(--text-secondary);line-height:1.6;padding-left:48px${hasUserResponse ? ';margin-bottom:12px' : ''}">
+          <strong>Recommendation:</strong> ${driftAlert.recommendation}
+        </div>
+        ${hasUserResponse ? `
+        <div style="padding-left:48px">
+          <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:${userChoice === 'continue' ? 'rgba(251,191,36,.1)' : 'rgba(239,68,68,.1)'};border:1px solid ${userChoice === 'continue' ? 'rgba(251,191,36,.3)' : 'rgba(239,68,68,.3)'};border-radius:var(--radius-md)">
+            <span style="font-size:1.1rem">${userChoice === 'continue' ? '✅' : '🛑'}</span>
+            <div>
+              <div style="font-size:.82rem;font-weight:600;color:${userChoice === 'continue' ? '#fbbf24' : '#ef4444'}">
+                ${userChoice === 'continue' ? 'User Approved' : 'User Rejected'}
+              </div>
+              <div style="font-size:.72rem;color:var(--text-dim);margin-top:2px">
+                ${userChoice === 'continue' ? 'Continuing despite drift' : 'Execution stopped'}
+              </div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // Actions timeline
+  html += `
+    <div class="section-heading" style="margin-bottom:12px">Action Timeline (${actions.length} actions)</div>
+  `;
+
+  if (actions.length === 0) {
+    html += `
+      <div style="padding:40px 20px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);color:var(--text-dim);font-size:.85rem">
+        No actions recorded yet
+      </div>
+    `;
+  } else {
+    const driftActionNum = driftAlert ? driftAlert.action_count : null;
+
+    html += '<div style="display:flex;flex-direction:column;gap:8px">';
+
+    actions.forEach(function(action) {
+      const isDriftAction = driftActionNum && action.n === driftActionNum;
+      const bgColor = isDriftAction ? 'rgba(239,68,68,.06)' : 'var(--card)';
+      const borderColor = isDriftAction ? 'rgba(239,68,68,.25)' : 'var(--border)';
+
+      let actionText = action.tool;
+      if (action.file) actionText += ` → ${action.file}`;
+      else if (action.cmd) actionText += ` → ${action.cmd.substring(0, 60)}${action.cmd.length > 60 ? '...' : ''}`;
+      else if (action.pattern) actionText += ` → ${action.pattern}`;
+      else if (action.desc) actionText += ` → ${action.desc}`;
+
+      html += `
+        <div style="background:${bgColor};border:1px solid ${borderColor};border-radius:var(--radius-md);padding:10px 14px;display:flex;align-items:center;gap:12px">
+          <div style="width:28px;height:28px;border-radius:50%;background:${isDriftAction ? 'rgba(239,68,68,.12)' : 'rgba(200,149,108,.08)'};border:1px solid ${isDriftAction ? 'rgba(239,68,68,.3)' : 'rgba(200,149,108,.2)'};display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;color:${isDriftAction ? '#ef4444' : 'var(--copper)'};flex-shrink:0">
+            ${action.n}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.85rem;color:${isDriftAction ? '#ef4444' : 'var(--text)'};font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              ${actionText}
+            </div>
+            ${action.reason ? `<div style="font-size:.75rem;color:var(--text-dim);margin-top:2px">${action.reason}</div>` : ''}
+          </div>
+          ${isDriftAction ? `<span class="edge-status red" style="font-size:.7rem;padding:3px 8px">Drift</span>` : ''}
+        </div>
+      `;
+    });
+
+    html += '</div>';
+  }
+
+  return html;
+}
+window.renderLiveDriftVisualization = renderLiveDriftVisualization;
+
+function renderActionFlowGraph(data) {
+  const actions = data.actions || [];
+  const driftAlert = data.drift_alert;
+  const driftActionNum = driftAlert ? driftAlert.action_count : null;
+
+  if (actions.length === 0) {
+    return '<div style="padding:40px;text-align:center;color:var(--text-dim)">No actions to visualize</div>';
+  }
+
+  // Tool type colors
+  const toolColors = {
+    'Read': '#3b82f6',    // blue
+    'Write': '#10b981',   // green
+    'Edit': '#f59e0b',    // amber
+    'Bash': '#8b5cf6',    // purple
+    'Grep': '#ec4899',    // pink
+    'Glob': '#06b6d4',    // cyan
+    'Task': '#f97316',    // orange
+    'WebFetch': '#14b8a6', // teal
+    'WebSearch': '#6366f1' // indigo
+  };
+
+  // Layout constants
+  const nodeWidth = 140;
+  const nodeHeight = 60;
+  const horizontalGap = 60;
+  const verticalGap = 30;
+  const nodesPerRow = 4;
+
+  // Calculate grid positions and pass/fail status
+  const nodes = actions.map((action, i) => {
+    const row = Math.floor(i / nodesPerRow);
+    const col = i % nodesPerRow;
+    const x = col * (nodeWidth + horizontalGap) + nodeWidth / 2;
+    const y = row * (nodeHeight + verticalGap) + nodeHeight / 2;
+
+    // Determine pass/fail status
+    let status = 'passed'; // Default: green
+    if (driftActionNum !== null) {
+      if (action.n === driftActionNum) {
+        status = 'failed'; // Red: drift detected here
+      } else if (action.n > driftActionNum) {
+        status = 'warning'; // Yellow: actions after drift
+      }
+    }
+
+    return {
+      action,
+      x,
+      y,
+      status,
+      isDrift: action.n === driftActionNum
+    };
+  });
+
+  // Calculate SVG dimensions
+  const numRows = Math.ceil(actions.length / nodesPerRow);
+  const svgWidth = Math.min(nodesPerRow, actions.length) * (nodeWidth + horizontalGap);
+  const svgHeight = numRows * (nodeHeight + verticalGap) + verticalGap;
+
+  // Build SVG
+  let svg = `
+    <svg width="${svgWidth}" height="${svgHeight}" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg)">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+          <polygon points="0 0, 10 3, 0 6" fill="var(--text-dim)" opacity="0.4"/>
+        </marker>
+        <marker id="arrowhead-drift" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+          <polygon points="0 0, 10 3, 0 6" fill="#ef4444" opacity="0.6"/>
+        </marker>
+      </defs>
+  `;
+
+  // Draw edges (arrows)
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const from = nodes[i];
+    const to = nodes[i + 1];
+    const isDriftEdge = to.isDrift;
+
+    // Calculate edge path
+    const startX = from.x + nodeWidth / 2;
+    const startY = from.y;
+    const endX = to.x - nodeWidth / 2;
+    const endY = to.y;
+
+    const color = isDriftEdge ? '#ef4444' : 'var(--text-dim)';
+    const opacity = isDriftEdge ? 0.6 : 0.3;
+    const marker = isDriftEdge ? 'arrowhead-drift' : 'arrowhead';
+
+    // Simple line or curved path
+    if (Math.abs(from.y - to.y) < 5) {
+      // Same row - straight line
+      svg += `
+        <line x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}"
+              stroke="${color}" stroke-width="2" opacity="${opacity}"
+              marker-end="url(#${marker})"/>
+      `;
+    } else {
+      // Different row - curved path
+      const midX = (startX + endX) / 2;
+      svg += `
+        <path d="M ${startX},${startY} Q ${midX},${startY} ${midX},${(startY + endY) / 2} Q ${midX},${endY} ${endX},${endY}"
+              stroke="${color}" stroke-width="2" fill="none" opacity="${opacity}"
+              marker-end="url(#${marker})"/>
+      `;
+    }
+  }
+
+  // Draw nodes
+  nodes.forEach((node, idx) => {
+    const tool = node.action.tool;
+    const baseColor = toolColors[tool] || '#6b7280';
+
+    // Status-based colors
+    let bgColor, borderColor, textColor, statusIcon;
+    if (node.status === 'failed') {
+      bgColor = 'rgba(239,68,68,.15)';
+      borderColor = '#ef4444';
+      textColor = '#ef4444';
+      statusIcon = '❌';
+    } else if (node.status === 'warning') {
+      bgColor = 'rgba(251,191,36,.15)';
+      borderColor = '#fbbf24';
+      textColor = '#fbbf24';
+      statusIcon = '⚠️';
+    } else {
+      // passed
+      bgColor = 'rgba(74,222,128,.15)';
+      borderColor = '#4ade80';
+      textColor = '#4ade80';
+      statusIcon = '✓';
+    }
+
+    // Get action label
+    let label = tool;
+    if (node.action.file) {
+      const fileName = node.action.file.split('/').pop();
+      label = `${tool}: ${fileName}`;
+    } else if (node.action.cmd) {
+      label = `${tool}: ${node.action.cmd.substring(0, 15)}...`;
+    } else if (node.action.pattern) {
+      label = `${tool}: ${node.action.pattern.substring(0, 15)}`;
+    }
+
+    // Truncate label
+    if (label.length > 20) {
+      label = label.substring(0, 17) + '...';
+    }
+
+    // Create unique ID for this node
+    const nodeId = `action-node-${idx}`;
+
+    svg += `
+      <g transform="translate(${node.x - nodeWidth / 2}, ${node.y - nodeHeight / 2})"
+         class="action-node ${node.status === 'failed' ? 'clickable-node' : ''}"
+         data-action-idx="${idx}"
+         style="${node.status === 'failed' ? 'cursor:pointer' : ''}">
+
+        <!-- Background rect -->
+        <rect width="${nodeWidth}" height="${nodeHeight}" rx="8"
+              fill="${bgColor}" stroke="${borderColor}" stroke-width="2.5"
+              class="${node.status === 'failed' ? 'clickable-rect' : ''}"
+              style="${node.status === 'failed' ? 'transition: all 0.2s ease;' : ''}"
+              onmouseover="${node.status === 'failed' ? 'this.setAttribute(\'stroke-width\', \'3.5\'); this.style.filter=\'brightness(1.2)\';' : ''}"
+              onmouseout="${node.status === 'failed' ? 'this.setAttribute(\'stroke-width\', \'2.5\'); this.style.filter=\'brightness(1)\';' : ''}"
+              onclick="${node.status === 'failed' ? `showActionError(${idx})` : ''}"
+              />
+
+        <!-- Status indicator (top right) -->
+        <circle cx="${nodeWidth - 14}" cy="14" r="11" fill="${borderColor}" opacity="0.25"/>
+        <text x="${nodeWidth - 14}" y="19" text-anchor="middle" font-size="13" fill="${borderColor}">
+          ${statusIcon}
+        </text>
+
+        <!-- Action number badge (top left) -->
+        <circle cx="14" cy="14" r="11" fill="${borderColor}" opacity="0.2"/>
+        <text x="14" y="19" text-anchor="middle" font-size="11" font-weight="600" fill="${borderColor}">
+          ${node.action.n}
+        </text>
+
+        <!-- Tool name -->
+        <text x="${nodeWidth / 2}" y="35" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text)">
+          ${tool}
+        </text>
+
+        <!-- File/cmd/pattern (if exists) -->
+        ${node.action.file || node.action.cmd || node.action.pattern ? `
+          <text x="${nodeWidth / 2}" y="49" text-anchor="middle" font-size="9" fill="var(--text-dim)" opacity="0.8">
+            ${(node.action.file?.split('/').pop() || node.action.cmd?.substring(0, 12) || node.action.pattern?.substring(0, 12) || '').substring(0, 15)}${((node.action.file || node.action.cmd || node.action.pattern || '').length > 15) ? '...' : ''}
+          </text>
+        ` : ''}
+      </g>
+    `;
+  });
+
+  svg += '</svg>';
+
+  // Store drift data globally for error modal
+  window._actionFlowDriftData = { actions, driftAlert };
+
+  // Wrap in container with legend
+  return `
+    <div style="margin-bottom:24px">
+      <div class="section-heading" style="margin-bottom:12px">Action Flow Graph</div>
+
+      <!-- Pass/Fail Legend -->
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);font-size:.8rem">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:14px;height:14px;border-radius:50%;background:#4ade80;opacity:0.8"></div>
+          <span style="color:var(--text-dim)">✓ Passed</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:14px;height:14px;border-radius:50%;background:#ef4444;opacity:0.8"></div>
+          <span style="color:var(--text-dim)">❌ Failed (click to see why)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:14px;height:14px;border-radius:50%;background:#fbbf24;opacity:0.8"></div>
+          <span style="color:var(--text-dim)">⚠️ After Drift</span>
+        </div>
+      </div>
+
+      <!-- Tool Type Legend -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:10px;background:rgba(0,0,0,.02);border:1px solid var(--border);border-radius:var(--radius-md);font-size:.75rem">
+        ${Object.entries(toolColors).map(([tool, color]) => `
+          <div style="display:flex;align-items:center;gap:5px">
+            <div style="width:10px;height:10px;border-radius:2px;background:${color};opacity:0.6"></div>
+            <span style="color:var(--text-dim)">${tool}</span>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Error Modal (hidden by default) -->
+      <div id="action-error-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:10000;align-items:center;justify-content:center;" onclick="if(event.target.id==='action-error-modal') closeActionError()">
+        <div style="background:var(--bg);border:2px solid #ef4444;border-radius:var(--radius-lg);max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+          <!-- Modal Header -->
+          <div style="padding:20px 24px;background:linear-gradient(135deg,rgba(239,68,68,.1),rgba(239,68,68,.05));border-bottom:1px solid rgba(239,68,68,.3);display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:40px;height:40px;border-radius:50%;background:rgba(239,68,68,.15);border:2px solid #ef4444;display:flex;align-items:center;justify-content:center">
+                <span style="font-size:20px">❌</span>
+              </div>
+              <div>
+                <div style="font-size:1.1rem;font-weight:600;color:#ef4444">Action Failed</div>
+                <div id="action-error-action-label" style="font-size:.8rem;color:var(--text-dim);margin-top:2px"></div>
+              </div>
+            </div>
+            <button onclick="closeActionError()" style="background:none;border:none;font-size:1.5rem;color:var(--text-dim);cursor:pointer;padding:4px 8px;line-height:1">&times;</button>
+          </div>
+
+          <!-- Modal Body -->
+          <div id="action-error-content" style="padding:24px">
+            <!-- Content populated by showActionError() -->
+          </div>
+
+          <!-- Modal Footer -->
+          <div style="padding:16px 24px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+            <button onclick="closeActionError()" class="btn btn-primary" style="padding:10px 24px">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Graph -->
+      <div style="overflow-x:auto;padding:20px;background:var(--bg);border-radius:var(--radius-lg)">
+        ${svg}
+      </div>
+    </div>
+  `;
+}
+window.renderActionFlowGraph = renderActionFlowGraph;
+
+// Show error modal for a failed action
+function showActionError(actionIdx) {
+  const driftData = window._actionFlowDriftData;
+  if (!driftData) return;
+
+  const action = driftData.actions[actionIdx];
+  const driftAlert = driftData.driftAlert;
+
+  if (!action || !driftAlert) return;
+
+  // Populate modal header
+  const labelEl = document.getElementById('action-error-action-label');
+  labelEl.textContent = `Action ${action.n}: ${action.tool}${action.file ? ` (${action.file.split('/').pop()})` : ''}`;
+
+  // Build error content
+  let content = `
+    <div style="margin-bottom:20px">
+      <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:8px">Why This Action Failed</div>
+      <div style="padding:14px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius-md);font-size:.88rem;color:var(--text-secondary);line-height:1.6">
+        ${driftAlert.reason}
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:8px">Confidence</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+          <div style="height:100%;background:#ef4444;width:${(driftAlert.confidence * 100)}%;transition:width 0.3s ease"></div>
+        </div>
+        <div style="font-size:.9rem;font-weight:600;color:#ef4444;min-width:50px">${(driftAlert.confidence * 100).toFixed(0)}%</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:8px">Recommendation</div>
+      <div style="padding:14px;background:rgba(200,149,108,.08);border:1px solid rgba(200,149,108,.2);border-radius:var(--radius-md);font-size:.88rem;color:var(--text-secondary);line-height:1.6">
+        ${driftAlert.recommendation}
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:8px">Action Details</div>
+      <div style="padding:14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);font-size:.85rem;font-family:monospace">
+        <div style="margin-bottom:8px"><strong>Tool:</strong> ${action.tool}</div>
+        ${action.file ? `<div style="margin-bottom:8px"><strong>File:</strong> ${action.file}</div>` : ''}
+        ${action.cmd ? `<div style="margin-bottom:8px"><strong>Command:</strong> ${action.cmd}</div>` : ''}
+        ${action.pattern ? `<div style="margin-bottom:8px"><strong>Pattern:</strong> ${action.pattern}</div>` : ''}
+        ${action.path ? `<div style="margin-bottom:8px"><strong>Path:</strong> ${action.path}</div>` : ''}
+        ${action.reason ? `<div style="margin-bottom:8px"><strong>Reason:</strong> ${action.reason}</div>` : ''}
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);color:var(--text-dim);font-size:.8rem">
+          Timestamp: ${new Date(action.ts * 1000).toLocaleString()}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Populate modal content
+  document.getElementById('action-error-content').innerHTML = content;
+
+  // Show modal
+  const modal = document.getElementById('action-error-modal');
+  modal.style.display = 'flex';
+}
+window.showActionError = showActionError;
+
+// Close error modal
+function closeActionError() {
+  const modal = document.getElementById('action-error-modal');
+  modal.style.display = 'none';
+}
+window.closeActionError = closeActionError;
+
+async function loadTraceInDAG(traceId) {
+  if (!traceId) {
+    alert('Please enter a trace ID');
+    return;
+  }
+
+  // Show loading state
+  const input = document.getElementById('dag-trace-input');
+  const originalValue = input.value;
+  input.value = 'Loading...';
+  input.disabled = true;
+
+  try {
+    // Try to load as live session first
+    if (traceId.startsWith('session-') || traceId.startsWith('tr-coding-') || traceId.startsWith('tr-proxy-')) {
+      const liveResp = await apiFetch(`/api/live/sessions/${traceId}/file-state`);
+      if (liveResp.ok) {
+        const fileData = await liveResp.json();
+        const sessionData = fileData.data || fileData;
+
+        // Add file-based session to sessions array if not already present
+        await loadLiveSessions(); // Refresh live sessions from DB
+        if (!liveMonitorState.sessions.find(s => s.trace_id === traceId)) {
+          liveMonitorState.sessions.push({
+            trace_id: traceId,
+            user_goal: sessionData.user_goal || 'File-based session',
+            created_at: sessionData.created_at || Date.now() / 1000,
+            action_count: sessionData.action_count || 0,
+            has_drift: sessionData.has_drift_flag || false
+          });
+        }
+
+        // Navigate to DAG viewer
+        renderDAGViewer(traceId);
+        input.value = '';
+        input.disabled = false;
+        return;
+      }
+    }
+
+    // Try to load as completed trace (from proxy API)
+    await loadProxyTrace(traceId);
+    input.value = '';
+    input.disabled = false;
+  } catch (e) {
+    alert('Failed to load trace: ' + e.message);
+    input.value = originalValue;
+    input.disabled = false;
+  }
+}
+window.loadTraceInDAG = loadTraceInDAG;
+
+async function loadAndRenderLiveSessions() {
+  try {
+    const response = await apiFetch('/api/live/sessions?status=active&limit=10');
+    const result = await response.json();
+    const sessions = (result.data && result.data.sessions) || result.sessions || [];
+
+    const listEl = document.getElementById('live-sessions-list');
+    if (!listEl) return;
+
+    if (sessions.length === 0) {
+      listEl.innerHTML = `
+        <div style="padding:20px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);color:var(--text-dim);font-size:.85rem">
+          No active sessions. Click "New Session" to start monitoring a coding task.
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = sessions.map(s => `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.user_goal}</div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:.75rem;color:var(--text-dim)">
+            <span style="font-family:monospace;color:var(--copper)">${s.trace_id}</span>
+            <span>•</span>
+            <span>${s.total_actions} actions</span>
+            ${s.drift_alerts > 0 ? `<span>•</span><span style="color:var(--red)">${s.drift_alerts} drift alerts</span>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="edge-status ${s.status === 'active' ? 'green' : s.status === 'drifted' ? 'red' : 'amber'}" style="font-size:.72rem;padding:4px 10px">${s.status}</span>
+          <button class="btn btn-primary" style="padding:6px 12px;font-size:.75rem" onclick="navigateTo('dagviewer', {traceId: '${s.trace_id}'})">View DAG</button>
+          ${s.status === 'active' ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:.75rem" onclick="pauseLiveSession('${s.trace_id}')">Pause</button>` : ''}
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:.75rem" onclick="completeLiveSession('${s.trace_id}')">Stop</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('Failed to load live sessions:', e);
+  }
+}
+window.loadAndRenderLiveSessions = loadAndRenderLiveSessions;
+
+async function createLiveSessionFromDAG() {
+  const goal = prompt('Enter the coding task/goal:');
+  if (!goal || !goal.trim()) return;
+
+  try {
+    const traceId = 'tr-coding-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+
+    const response = await apiFetch('/api/live/sessions/create', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        trace_id: traceId,
+        user_goal: goal.trim(),
+        checkpoint_interval: 5,
+        llm_model: 'gpt-4o-mini'
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to create session');
+
+    // Show success and refresh list
+    showSessionCreated(traceId, goal.trim());
+    await loadAndRenderLiveSessions();
+  } catch (e) {
+    alert('Failed to create session: ' + e.message);
+  }
+}
+window.createLiveSessionFromDAG = createLiveSessionFromDAG;
+
+async function pauseLiveSession(traceId) {
+  try {
+    await apiFetch('/api/live/sessions/' + traceId + '/pause', {method: 'POST'});
+    await loadAndRenderLiveSessions();
+  } catch (e) {
+    alert('Failed to pause session');
+  }
+}
+window.pauseLiveSession = pauseLiveSession;
+
+async function completeLiveSession(traceId) {
+  try {
+    await apiFetch('/api/live/sessions/' + traceId + '/complete', {method: 'POST'});
+    await loadAndRenderLiveSessions();
+  } catch (e) {
+    alert('Failed to stop session');
+  }
+}
+window.completeLiveSession = completeLiveSession;
 
 // ===== EVALUATIONS =====
 function renderEvaluations() {
@@ -2115,9 +3024,13 @@ function renderApiPage() {
 
   // Build workflow type dropdown options
   var topoOptions = '<option value="">None (standalone trace)</option>';
+  // Add coding workflow type (for live monitoring integration)
+  var codingSelected = apiPageState.workflowType === 'coding' ? ' selected' : '';
+  topoOptions += '<option value="coding"' + codingSelected + '>Coding Session</option>';
+
   if (window._workflowTopologies) {
     Object.keys(window._workflowTopologies).forEach(function(key) {
-      if (key === 'custom') return;
+      if (key === 'custom' || key === 'coding') return;
       var label = key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
       var agentCount = window._workflowTopologies[key].length;
       var selected = apiPageState.workflowType === key ? ' selected' : '';
@@ -2268,6 +3181,34 @@ async function loadProxyTrace(traceId) {
     if (location.port && location.port !== '5000') {
       backendBase = location.protocol + '//' + location.hostname + ':5000';
     }
+
+    // Try live session first (if trace ID looks like a session ID)
+    if (traceId.startsWith('session-') || traceId.startsWith('tr-coding-')) {
+      try {
+        var liveResp = await apiFetch(backendBase + '/api/live/sessions/' + encodeURIComponent(traceId));
+        if (liveResp.ok) {
+          var liveJson = await liveResp.json();
+          var liveData = liveJson.data || liveJson;
+
+          // If it's a live session, navigate to DAG viewer directly
+          // (live sessions are already in liveMonitorState.sessions)
+          await loadLiveSessions(); // Refresh to ensure it's loaded
+
+          apiPageState.loading = false;
+          apiPageState.success = true;
+          renderApiPage();
+
+          setTimeout(function() {
+            navigateTo('dagviewer', { traceId: traceId });
+          }, 600);
+          return;
+        }
+      } catch (liveErr) {
+        // Not a live session, fall through to try v1 traces
+      }
+    }
+
+    // Try v1 traces API (completed proxy traces)
     var resp = await apiFetch(backendBase + '/api/v1/traces/' + encodeURIComponent(traceId));
     if (!resp.ok) {
       var errBody = await resp.json().catch(function() { return {}; });
@@ -2361,6 +3302,567 @@ function renderSettings() {
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-size:.75rem;color:var(--text-dim)">
         ArcanaAI v0.1.0 &mdash; LLM Observability Platform<br>
         ${journeys.length} traces &middot; ${getAllAgents().length} agents &middot; ${Object.keys(getAllAgents().reduce((m,a)=>{m[a.model_parameters?.model||'']=1;return m},{})).length} models
+      </div>
+    </div>
+  `;
+}
+
+// ===== LIVE MONITORING =====
+let liveMonitorState = {
+  sessions: [],
+  selectedSession: null,
+  autoRefresh: null,
+  dagRefreshInterval: null
+};
+
+async function renderLiveMonitor() {
+  // Fetch sessions from backend
+  await loadLiveSessions();
+
+  const activeSessions = liveMonitorState.sessions.filter(s => s.status === 'active');
+  const otherSessions = liveMonitorState.sessions.filter(s => s.status !== 'active');
+
+  document.getElementById('page-livemonitor').innerHTML = `
+    <div class="section-heading">Live Monitoring</div>
+    <div class="section-sub">Monitor coding agents in real-time and catch goal drift</div>
+
+    <!-- Create Session Card -->
+    <div class="metric-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 style="font-family:var(--font-display);font-size:1.4rem;color:var(--copper)">Start New Session</h2>
+      </div>
+      <div style="color:var(--text-secondary);line-height:1.6;margin-bottom:20px">
+        Create a monitoring session before running Claude Code. You'll get a <code style="background:var(--surface);padding:2px 6px;border-radius:4px;color:var(--copper)">session_id</code> to pass to your agent.
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-end">
+        <div style="flex:1">
+          <label style="display:block;font-size:.8rem;color:var(--text-dim);margin-bottom:6px;font-weight:500">Goal</label>
+          <input type="text" id="newSessionGoal" placeholder="e.g., Add user authentication"
+                 style="width:100%;font-size:.9rem;padding:10px 14px">
+        </div>
+        <button class="btn btn-primary" onclick="createLiveSession()" style="padding:10px 24px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Create Session
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Sessions -->
+    ${activeSessions.length > 0 ? `
+      <div style="margin-bottom:28px">
+        <h3 style="font-size:1rem;color:var(--text);margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Active Sessions (${activeSessions.length})</h3>
+        <div style="display:grid;gap:16px">
+          ${activeSessions.map(session => renderSessionCard(session)).join('')}
+        </div>
+      </div>
+    ` : `
+      <div class="empty-state" style="text-align:center;padding:60px 20px;color:var(--text-dim)">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 16px">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+        </svg>
+        <div style="font-size:1.1rem;margin-bottom:8px;color:var(--text-secondary)">No active sessions</div>
+        <div style="font-size:.85rem">Create a session above to start monitoring</div>
+      </div>
+    `}
+
+    <!-- Recent Sessions -->
+    ${otherSessions.length > 0 ? `
+      <div style="margin-top:32px">
+        <h3 style="font-size:1rem;color:var(--text);margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Recent Sessions</h3>
+        <div style="display:grid;gap:12px">
+          ${otherSessions.map(session => renderSessionCard(session)).join('')}
+        </div>
+      </div>
+    ` : ''}
+  `;
+
+  // Start auto-refresh
+  if (liveMonitorState.autoRefresh) clearInterval(liveMonitorState.autoRefresh);
+  liveMonitorState.autoRefresh = setInterval(() => {
+    if (currentPage === 'livemonitor') loadLiveSessions();
+  }, 3000);
+}
+
+function renderSessionCard(session) {
+  const statusColors = {
+    active: 'green',
+    paused: 'yellow',
+    drifted: 'red',
+    completed: 'blue',
+    stopped: 'purple'
+  };
+  const statusColor = statusColors[session.status] || 'copper';
+
+  return `
+    <div class="metric-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;transition:var(--transition);cursor:pointer" onclick="viewSession('${session.session_id}')">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+        <div style="flex:1">
+          <div style="font-family:var(--font-display);font-size:1.1rem;margin-bottom:6px;color:var(--text)">${session.user_goal}</div>
+          <div style="font-family:monospace;font-size:.75rem;color:var(--text-dim)">${session.session_id}</div>
+        </div>
+        <span class="badge" style="background:var(--${statusColor}-dim);color:var(--${statusColor});text-transform:uppercase;font-size:.7rem;padding:4px 10px">${session.status}</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <div>
+          <div style="font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Actions</div>
+          <div style="font-size:1.3rem;font-weight:600;color:var(--text)">${session.total_actions}</div>
+        </div>
+        <div>
+          <div style="font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Alerts</div>
+          <div style="font-size:1.3rem;font-weight:600;color:${session.drift_alerts > 0 ? 'var(--red)' : 'var(--text)'}">${session.drift_alerts}</div>
+        </div>
+        <div>
+          <div style="font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Duration</div>
+          <div style="font-size:1.3rem;font-weight:600;color:var(--text)">${formatDuration(session.created_at, session.completed_at)}</div>
+        </div>
+      </div>
+
+      ${session.status === 'active' ? `
+        <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <button class="btn" style="flex:1;background:var(--yellow-dim);color:var(--yellow);font-size:.8rem;padding:8px" onclick="event.stopPropagation();pauseSession('${session.session_id}')">
+            Pause
+          </button>
+          <button class="btn" style="flex:1;background:var(--red-dim);color:var(--red);font-size:.8rem;padding:8px" onclick="event.stopPropagation();stopSession('${session.session_id}')">
+            Stop
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+async function loadLiveSessions() {
+  try {
+    const response = await apiFetch('/api/live/sessions');
+    const result = await response.json();
+    // Handle wrapped response format: {success: true, data: {sessions: [...]}}
+    liveMonitorState.sessions = (result.data && result.data.sessions) || result.sessions || [];
+  } catch (e) {
+    console.error('Failed to load sessions:', e);
+    liveMonitorState.sessions = [];
+  }
+}
+
+async function createLiveSession() {
+  const goalInput = document.getElementById('newSessionGoal');
+  const goal = goalInput.value.trim();
+
+  if (!goal) {
+    alert('Please enter a goal');
+    return;
+  }
+
+  try {
+    const sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 8);
+
+    // Build backend URL
+    var backendBase = '';
+    if (location.port && location.port !== '5000') {
+      backendBase = location.protocol + '//' + location.hostname + ':5000';
+    }
+
+    const response = await fetch(backendBase + '/api/live/sessions/create', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        session_id: sessionId,
+        user_goal: goal,
+        checkpoint_interval: 5,
+        llm_model: 'gpt-4o-mini'
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to create session');
+
+    // Show success message with session ID
+    showSessionCreated(sessionId, goal);
+
+    // Clear input
+    goalInput.value = '';
+
+    // Refresh sessions and re-render (renderLiveMonitor calls loadLiveSessions internally)
+    await renderLiveMonitor();
+
+  } catch (e) {
+    alert('Failed to create session: ' + e.message);
+  }
+}
+
+function showSessionCreated(traceId, goal) {
+  const modal = `
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:1000" onclick="this.remove()">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;max-width:500px;width:90%" onclick="event.stopPropagation()">
+        <div style="text-align:center;margin-bottom:24px">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" style="margin:0 auto 12px">
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
+          </svg>
+          <h2 style="font-family:var(--font-display);font-size:1.5rem;margin-bottom:8px;color:var(--copper)">Coding Session Created!</h2>
+          <div style="color:var(--text-secondary);font-size:.9rem">${goal}</div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:20px">
+          <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Trace ID</div>
+          <div style="font-family:monospace;font-size:.9rem;color:var(--copper);word-break:break-all">${traceId}</div>
+        </div>
+
+        <div style="color:var(--text-secondary);font-size:.85rem;line-height:1.6;margin-bottom:20px">
+          This trace will appear in the DAG Viewer once actions are recorded.
+          <pre style="background:var(--surface);padding:12px;border-radius:var(--radius-sm);margin-top:8px;overflow-x:auto;font-size:.8rem;border:1px solid var(--border)">Trace ID: ${traceId}</pre>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%" onclick="this.closest('[style*=\"position:fixed\"]').remove()">Got it!</button>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modal);
+}
+
+async function pauseSession(sessionId) {
+  try {
+    // Build backend URL
+    var backendBase = '';
+    if (location.port && location.port !== '5000') {
+      backendBase = location.protocol + '//' + location.hostname + ':5000';
+    }
+    await fetch(backendBase + '/api/live/sessions/' + sessionId + '/pause', {method: 'POST'});
+    await renderLiveMonitor();
+  } catch (e) {
+    alert('Failed to pause session');
+  }
+}
+
+async function stopSession(sessionId) {
+  if (!confirm('Stop this session? This cannot be undone.')) return;
+  try {
+    // Build backend URL
+    var backendBase = '';
+    if (location.port && location.port !== '5000') {
+      backendBase = location.protocol + '//' + location.hostname + ':5000';
+    }
+    await fetch(backendBase + '/api/live/sessions/' + sessionId + '/complete', {method: 'POST'});
+    await renderLiveMonitor();
+  } catch (e) {
+    alert('Failed to stop session');
+  }
+}
+
+function viewSession(sessionId) {
+  // TODO: Navigate to session detail view with live action timeline
+  alert('Session detail view coming soon!\n\nSession: ' + sessionId);
+}
+
+function formatDuration(start, end) {
+  const startTime = new Date(start);
+  const endTime = end ? new Date(end) : new Date();
+  const seconds = Math.floor((endTime - startTime) / 1000);
+  if (seconds < 60) return seconds + 's';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return minutes + 'm';
+  const hours = Math.floor(minutes / 60);
+  return hours + 'h';
+}
+
+// Stop auto-refresh when leaving page
+window.addEventListener('beforeunload', () => {
+  if (liveMonitorState.autoRefresh) clearInterval(liveMonitorState.autoRefresh);
+});
+
+// ===== DOCUMENTATION =====
+function renderDocs() {
+  document.getElementById('page-docs').innerHTML = `
+    <div class="section-heading">Documentation</div>
+    <div class="section-sub">Everything you need to get started with ArcanaAI</div>
+
+    <div style="max-width:900px">
+      <!-- Quick Start -->
+      <div class="metric-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:20px">
+        <h2 style="font-family:var(--font-display);font-size:1.6rem;margin-bottom:12px;color:var(--copper)">🚀 Quick Start</h2>
+        <div style="color:var(--text-secondary);line-height:1.7;margin-bottom:20px">
+          ArcanaAI is an LLM observability platform that helps you debug multi-agent systems by reconstructing agent DAGs, detecting goal drift, and identifying communication issues.
+        </div>
+
+        <h3 style="font-weight:600;margin:20px 0 12px;color:var(--text)">1. Start the Platform</h3>
+        <pre style="background:var(--surface);padding:16px;border-radius:var(--radius);overflow-x:auto;font-size:.85rem;border:1px solid var(--border)"><code style="color:var(--green)"># Start backend (Django + Celery)
+cd backend && python manage.py runserver 5000
+
+# Start frontend (in a new terminal)
+cd frontend && python3 -m http.server 8000
+
+# Optional: Start Redis for async optimization
+redis-server
+
+# Optional: Start Celery worker
+cd backend && celery -A arcana worker --loglevel=info</code></pre>
+
+        <h3 style="font-weight:600;margin:20px 0 12px;color:var(--text)">2. Access the Dashboard</h3>
+        <div style="color:var(--text-secondary);line-height:1.7">
+          Open <a href="http://localhost:8000" style="color:var(--copper);text-decoration:underline">http://localhost:8000</a> in your browser.<br>
+          The backend API runs at <a href="http://localhost:5000" style="color:var(--copper);text-decoration:underline">http://localhost:5000</a>.
+        </div>
+
+        <h3 style="font-weight:600;margin:20px 0 12px;color:var(--text)">3. Upload Your First Trace</h3>
+        <div style="color:var(--text-secondary);line-height:1.7">
+          Click the <strong style="color:var(--copper)">Upload Logs</strong> button in the sidebar and select a JSON file containing your agent execution traces.
+        </div>
+      </div>
+
+      <!-- Core Concepts -->
+      <div class="metric-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:20px">
+        <h2 style="font-family:var(--font-display);font-size:1.6rem;margin-bottom:12px;color:var(--copper)">📚 Core Concepts</h2>
+
+        <div style="margin-bottom:20px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">Traces & Journeys</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            A <strong>trace</strong> represents a complete multi-agent execution flow. All agents in the same execution share a <code style="background:var(--surface);padding:2px 6px;border-radius:3px;color:var(--copper)">trace_id</code>.
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">Agent DAG (Directed Acyclic Graph)</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            The system reconstructs the agent execution graph using parent-child relationships. Each node is an agent, each edge represents communication flow.
+          </div>
+          <div style="margin-top:8px;color:var(--text-dim);font-size:.85rem">
+            Supported patterns: Linear chains, Fan-out (1→N), Fan-in (N→1), Diamond (fan-out + fan-in)
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">Goal Monitoring</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            The TaskProgressMonitor checks whether agents are executing the user's intended goal. It runs LLM checkpoints every N steps to detect drift.
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">Cascade Evaluation (3-Tier)</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            <strong style="color:var(--green)">T1 Sentinel</strong>: Instant regex checks (forbidden words, length limits)<br>
+            <strong style="color:var(--yellow)">T2 Rules Judge</strong>: LLM evaluation with <code style="background:var(--surface);padding:2px 6px;border-radius:3px">gpt-4o-mini</code><br>
+            <strong style="color:var(--purple)">T3 Specialist</strong>: Per-agent LLM evaluation with <code style="background:var(--surface);padding:2px 6px;border-radius:3px">gpt-4o</code> (parallel execution)
+          </div>
+        </div>
+      </div>
+
+      <!-- API Integration -->
+      <div class="metric-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:20px">
+        <h2 style="font-family:var(--font-display);font-size:1.6rem;margin-bottom:12px;color:var(--copper)">🔌 API Integration</h2>
+
+        <h3 style="font-weight:600;margin:20px 0 12px;color:var(--text)">OpenAI-Compatible Proxy</h3>
+        <div style="color:var(--text-secondary);line-height:1.7;margin-bottom:12px">
+          ArcanaAI provides an OpenAI-compatible proxy that captures telemetry without changing your code. Just change the <code style="background:var(--surface);padding:2px 6px;border-radius:3px">base_url</code>:
+        </div>
+
+        <pre style="background:var(--surface);padding:16px;border-radius:var(--radius);overflow-x:auto;font-size:.85rem;border:1px solid var(--border);margin-bottom:16px"><code style="color:var(--blue)">from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/api/v1/proxy",
+    api_key=os.environ.get("OPENAI_API_KEY")
+)
+
+# Use custom headers to build DAG structure
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Your prompt"}],
+    extra_headers={
+        "X-Trace-Id": "trace-123",           # Group agents together
+        "X-Agent-Id": "agent-001",           # Unique agent ID
+        "X-Agent-Name": "Researcher",        # Display name
+        "X-Parent-Id": "agent-000",          # Parent agent (for DAG)
+        "X-Journey-Name": "Research Task"    # Human-readable journey
+    }
+)</code></pre>
+
+        <h3 style="font-weight:600;margin:20px 0 12px;color:var(--text)">REST API Endpoints</h3>
+        <div style="color:var(--text-secondary);line-height:1.7;margin-bottom:12px">
+          Full REST API for trace management:
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px">
+          <div style="display:grid;grid-template-columns:120px 1fr;font-size:.85rem">
+            <div style="padding:12px;background:var(--card);border-bottom:1px solid var(--border);color:var(--green);font-weight:600">GET</div>
+            <div style="padding:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)">/api/v1/traces</div>
+
+            <div style="padding:12px;background:var(--card);border-bottom:1px solid var(--border);color:var(--green);font-weight:600">GET</div>
+            <div style="padding:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)">/api/v1/traces/:id</div>
+
+            <div style="padding:12px;background:var(--card);border-bottom:1px solid var(--border);color:var(--blue);font-weight:600">POST</div>
+            <div style="padding:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)">/api/v1/traces</div>
+
+            <div style="padding:12px;background:var(--card);border-bottom:1px solid var(--border);color:var(--yellow);font-weight:600">PUT</div>
+            <div style="padding:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)">/api/v1/traces/:id</div>
+
+            <div style="padding:12px;background:var(--card);border-bottom:1px solid var(--border);color:var(--red);font-weight:600">DELETE</div>
+            <div style="padding:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)">/api/v1/traces/:id</div>
+
+            <div style="padding:12px;background:var(--card);border-bottom:1px solid var(--border);color:var(--blue);font-weight:600">POST</div>
+            <div style="padding:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)">/api/v1/traces/batch</div>
+
+            <div style="padding:12px;background:var(--card);border-bottom:1px solid var(--border);color:var(--green);font-weight:600">GET</div>
+            <div style="padding:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)">/api/v1/traces/:id/evaluate</div>
+
+            <div style="padding:12px;background:var(--card);color:var(--green);font-weight:600">GET</div>
+            <div style="padding:12px;color:var(--text-secondary)">/health</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Features Guide -->
+      <div class="metric-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:20px">
+        <h2 style="font-family:var(--font-display);font-size:1.6rem;margin-bottom:12px;color:var(--copper)">✨ Features Guide</h2>
+
+        <div style="margin-bottom:20px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">📊 DAG Viewer</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            Visualize your multi-agent execution graph with automatic layout. Color-coded nodes show evaluation results:<br>
+            <span style="color:var(--green)">● Green</span> = Passed all tiers │
+            <span style="color:var(--red)">● Red</span> = Failed T1 │
+            <span style="color:var(--yellow)">● Orange</span> = Failed T2 │
+            <span style="color:var(--purple)">● Purple</span> = Failed T3
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">🎯 Goal Monitor</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            Track whether your agent swarm is executing the user's intended goal. Set checkpoints to detect drift early.
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">✏️ Prompt Optimizer</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            Upload test cases (Excel/CSV) and automatically optimize prompts using LLM-based improvement loops. Supports per-agent filtering.
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">✅ Cascade Evaluations</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            3-tier evaluation system with progressive complexity: instant regex → rule-based LLM → specialist LLM (parallelized).
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">📚 Prompt Library</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            Save, organize, and compare prompt templates. Link prompts to specific agents for easy reuse.
+          </div>
+        </div>
+      </div>
+
+      <!-- Example Code -->
+      <div class="metric-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:20px">
+        <h2 style="font-family:var(--font-display);font-size:1.6rem;margin-bottom:12px;color:var(--copper)">💻 Example: 5-Agent Research Pipeline</h2>
+
+        <div style="color:var(--text-secondary);line-height:1.7;margin-bottom:12px">
+          This example shows how to build a research paper workflow with 5 agents using the OpenAI proxy:
+        </div>
+
+        <pre style="background:var(--surface);padding:16px;border-radius:var(--radius);overflow-x:auto;font-size:.85rem;border:1px solid var(--border)"><code style="color:var(--text-secondary)">from openai import OpenAI
+import os
+
+client = OpenAI(
+    base_url="http://localhost:5000/api/v1/proxy",
+    api_key=os.environ.get("OPENAI_API_KEY")
+)
+
+TRACE_ID = "research-001"
+
+# Agent 1: Scope (root)
+scope = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{
+        "role": "user",
+        "content": "Define research question and scope for: LLM fine-tuning"
+    }],
+    extra_headers={
+        "X-Trace-Id": TRACE_ID,
+        "X-Agent-Id": "agent-scope-001",
+        "X-Agent-Name": "Scope",
+        "X-Journey-Name": "Research Paper"
+    }
+)
+
+# Agent 2: Outline (child of Scope)
+outline = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{
+        "role": "user",
+        "content": f"Create outline from: {scope.choices[0].message.content}"
+    }],
+    extra_headers={
+        "X-Trace-Id": TRACE_ID,
+        "X-Agent-Id": "agent-outline-002",
+        "X-Agent-Name": "Outline",
+        "X-Parent-Id": "agent-scope-001"  # Links to Scope
+    }
+)
+
+# View the DAG at: http://localhost:8000
+# Select journey "Research Paper" in DAG Viewer</code></pre>
+
+        <div style="margin-top:16px;padding:12px;background:var(--copper-dim);border-left:3px solid var(--copper);border-radius:var(--radius);font-size:.85rem;color:var(--text-secondary)">
+          💡 <strong style="color:var(--text)">Tip:</strong> See the full example at <code style="background:var(--surface);padding:2px 6px;border-radius:3px">examples/test_api_page_flow.py</code>
+        </div>
+      </div>
+
+      <!-- Troubleshooting -->
+      <div class="metric-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:20px">
+        <h2 style="font-family:var(--font-display);font-size:1.6rem;margin-bottom:12px;color:var(--copper)">🔧 Troubleshooting</h2>
+
+        <div style="margin-bottom:16px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">Backend not responding</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            Check if the backend is running: <code style="background:var(--surface);padding:2px 6px;border-radius:3px">curl http://localhost:5000/health</code><br>
+            If not, start it: <code style="background:var(--surface);padding:2px 6px;border-radius:3px">cd backend && python manage.py runserver 5000</code>
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">Optimizer tasks stuck</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            Ensure Redis is running: <code style="background:var(--surface);padding:2px 6px;border-radius:3px">redis-cli ping</code> (should return "PONG")<br>
+            Start Celery worker: <code style="background:var(--surface);padding:2px 6px;border-radius:3px">cd backend && celery -A arcana worker --loglevel=info</code>
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">Cascade evaluation timeout</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            Always filter by trace_id when evaluating. Full cascade makes ~7 LLM calls per trace. Evaluating all traces at once will timeout.
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <h3 style="font-weight:600;margin-bottom:8px;color:var(--text)">DAG not showing nodes</h3>
+          <div style="color:var(--text-secondary);line-height:1.7">
+            Ensure your data has proper <code style="background:var(--surface);padding:2px 6px;border-radius:3px">trace_id</code>, <code style="background:var(--surface);padding:2px 6px;border-radius:3px">agent_id</code>, and <code style="background:var(--surface);padding:2px 6px;border-radius:3px">parent_id</code> fields. Check the browser console for errors.
+          </div>
+        </div>
+      </div>
+
+      <!-- Architecture -->
+      <div class="metric-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px">
+        <h2 style="font-family:var(--font-display);font-size:1.6rem;margin-bottom:12px;color:var(--copper)">🏗️ Architecture</h2>
+
+        <div style="color:var(--text-secondary);line-height:1.7;margin-bottom:12px">
+          <strong style="color:var(--text)">Frontend:</strong> Single-file HTML/CSS/JS (~3000 lines) served via Python HTTP server<br>
+          <strong style="color:var(--text)">Backend:</strong> Django REST API with Celery for async tasks<br>
+          <strong style="color:var(--text)">Database:</strong> PostgreSQL (production) / SQLite (development)<br>
+          <strong style="color:var(--text)">Cache:</strong> Redis for Celery task queue<br>
+          <strong style="color:var(--text)">Pipeline:</strong> <code style="background:var(--surface);padding:2px 6px;border-radius:3px">semantic_pipeline.py</code> — AgentDAG, CascadeEvaluator, TaskProgressMonitor
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-size:.85rem;color:var(--text-dim)">
+            📖 For more details, see <code style="background:var(--surface);padding:2px 6px;border-radius:3px">CLAUDE.md</code> in the project root.<br>
+            🐛 Report issues at <a href="https://github.com/yourusername/arcana-ai" style="color:var(--copper);text-decoration:underline">GitHub</a>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -3203,8 +4705,14 @@ let promptsPageState = {
   promptTemplate: 'You are a helpful assistant. {input}',
   targetScore: 0.85, maxIters: 3,
   results: [], summary: null, running: false, error: null,
-  apiKey: localStorage.getItem('arcana-openai-key') || '',
-  model: localStorage.getItem('arcana-optimizer-model') || 'gpt-4o',
+  apiKey: (function() {
+    try { return localStorage.getItem('arcana-openai-key') || ''; }
+    catch (e) { return ''; }
+  })(),
+  model: (function() {
+    try { return localStorage.getItem('arcana-optimizer-model') || 'gpt-4o'; }
+    catch (e) { return 'gpt-4o'; }
+  })(),
   selectedAgent: null
 };
 // Backward-compatible alias
@@ -3215,7 +4723,12 @@ let promptLibraryCompare = { left: null, right: null };
 
 function loadPromptLibrary() {
   try {
-    var raw = localStorage.getItem('arcana-prompt-library');
+    var raw = null;
+    try {
+      raw = localStorage.getItem('arcana-prompt-library');
+    } catch (storageErr) {
+      console.warn('localStorage not available:', storageErr.message);
+    }
     var lib = raw ? JSON.parse(raw) : [];
     // Migrate: backfill new fields for existing prompts
     lib.forEach(function(p) {
@@ -3230,7 +4743,11 @@ function loadPromptLibrary() {
 }
 
 function savePromptLibrary(lib) {
-  localStorage.setItem('arcana-prompt-library', JSON.stringify(lib));
+  try {
+    localStorage.setItem('arcana-prompt-library', JSON.stringify(lib));
+  } catch (e) {
+    console.warn('Could not save prompt library to localStorage:', e.message);
+  }
 }
 
 function persistPromptOverride(traceId, agentName, optimizedPrompt, originalPrompt, cascadeFeedback) {
@@ -3635,7 +5152,7 @@ function renderPromptDetail(promptId) {
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px">' +
         '<span class="agent-field-label" style="margin:0;white-space:nowrap">Model</span>' +
-        '<select id="detailModel" style="padding:4px 10px;font-size:.8rem;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm)" onchange="optimizerState.model=this.value;localStorage.setItem(\'arcana-optimizer-model\',this.value)">' +
+        '<select id="detailModel" style="padding:4px 10px;font-size:.8rem;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm)" onchange="optimizerState.model=this.value;try{localStorage.setItem(\'arcana-optimizer-model\',this.value)}catch(e){}">' +
           '<option value="gpt-4o"' + (st.model === 'gpt-4o' ? ' selected' : '') + '>gpt-4o</option>' +
           '<option value="gpt-4o-mini"' + (st.model === 'gpt-4o-mini' ? ' selected' : '') + '>gpt-4o-mini</option>' +
           '<option value="gpt-4.1-mini"' + (st.model === 'gpt-4.1-mini' ? ' selected' : '') + '>gpt-4.1-mini</option>' +
@@ -4211,8 +5728,12 @@ async function runOptimizer() {
   optimizerState.apiKey = apiKey;
   optimizerState.model = model;
   optimizerState.error = null;
-  localStorage.setItem('arcana-openai-key', apiKey);
-  localStorage.setItem('arcana-optimizer-model', model);
+  try {
+    localStorage.setItem('arcana-openai-key', apiKey);
+    localStorage.setItem('arcana-optimizer-model', model);
+  } catch (e) {
+    console.warn('Could not save to localStorage:', e.message);
+  }
   optimizerState.running = true;
   renderOptimizer();
 
